@@ -319,7 +319,7 @@ function NeonDashboard(){
    await api("/neon/credential",{method:"PUT",body:JSON.stringify({apiKey})});
    setApiKey("");
    setCredentialOpen(false);
-   const current=await api<NeonStatus>("/neon/status");
+   const current=await api<NeonStatus>("/neon/status").catch(()=>({configured:true,updatedAt:new Date().toISOString()}));
    setStatus(current);
    await refresh();
   }catch(e){
@@ -353,9 +353,9 @@ function NeonDashboard(){
     <p>按需查询当前 API Key 可访问的组织、项目和 PostgreSQL 用量。</p></div>
    <div className="actions">
     {status?.configured&&<button onClick={()=>void refresh()} disabled={refreshing}>{refreshing?"查询中…":"↻ 刷新全部"}</button>}
-    {status?.configured&&<button onClick={()=>{setCredentialError("");setCredentialOpen(true);}}>更换 API Key</button>}
+    {status?.configured&&<button onClick={()=>{setCredentialError("");setApiKey("");setCredentialOpen(true);}}>更换 API Key</button>}
     {status?.configured&&<button className="danger-text" onClick={()=>void deleteCredential()}>删除 Key</button>}
-    {!statusLoading&&<button className="primary" onClick={()=>{setCredentialError("");setCredentialOpen(true);}}>{status?.configured?"管理凭证":"＋ 配置 Neon"}</button>}
+    {!statusLoading&&<button className="primary" onClick={()=>{setCredentialError("");setApiKey("");setCredentialOpen(true);}}>{status?.configured?"管理凭证":"＋ 配置 Neon"}</button>}
    </div>
   </section>
 
@@ -365,7 +365,7 @@ function NeonDashboard(){
     <div className="neon-setup-mark">N</div>
     <h2>尚未配置 Neon API Key</h2>
     <p>添加一个 Neon Personal API Key，即可读取该账号有权限访问的全部 Organization 和 Project。</p>
-    <button className="primary" onClick={()=>{setCredentialError("");setCredentialOpen(true);}}>配置 Neon API Key</button>
+    <button className="primary" onClick={()=>{setCredentialError("");setApiKey("");setCredentialOpen(true);}}>配置 Neon API Key</button>
     <div className="neon-setup-note">
      <strong>推荐使用 Personal API Key</strong>
      <span>Personal API Key 可访问当前用户所属组织中有权限访问的项目。Organization API Key 仅覆盖单个组织，Project-scoped API Key 仅覆盖单个项目。</span>
@@ -392,14 +392,14 @@ function NeonDashboard(){
   }
 
   {credentialOpen&&<div className="overlay"><form className="modal" onSubmit={saveCredential}>
-   <div className="modal-title"><h2>{status?.configured?"更换 Neon API Key":"配置 Neon API Key"}</h2><button type="button" className="quiet" onClick={()=>setCredentialOpen(false)}>✕</button></div>
+   <div className="modal-title"><h2>{status?.configured?"更换 Neon API Key":"配置 Neon API Key"}</h2><button type="button" className="quiet" onClick={()=>{setApiKey("");setCredentialOpen(false);}}>✕</button></div>
    <label>Neon Personal API Key
     <input type="password" autoComplete="off" required minLength={10} maxLength={512} placeholder="粘贴 Neon API Key" value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
    </label>
    <p className="hint">提交后 Worker 会先调用 Neon 官方接口验证可访问的 Organization，再使用现有 AES-256-GCM 密钥加密保存。Key 不会回显，也不会写入前端或日志。</p>
    <p className="hint">推荐 Personal API Key。Organization API Key 和 Project-scoped API Key 只会显示其权限范围内的资源。</p>
    {credentialError&&<p className="error">{credentialError}</p>}
-   <div className="actions"><button type="button" onClick={()=>setCredentialOpen(false)}>取消</button><button className="primary" disabled={saving||!apiKey.trim()}>{saving?"验证并保存中…":"验证并保存"}</button></div>
+   <div className="actions"><button type="button" onClick={()=>{setApiKey("");setCredentialOpen(false);}}>取消</button><button className="primary" disabled={saving||!apiKey.trim()}>{saving?"验证并保存中…":"验证并保存"}</button></div>
   </form></div>}
  </main>;
 }
@@ -442,7 +442,7 @@ function NeonProjectCard({project,free,load,onRefresh}:{project:NeonProjectSumma
     <NeonMetricRow label="PostgreSQL Storage" metric={data.storage} quota={free?NEON_FREE_LIMITS.postgresStorageBytesPerProject:null} format={formatNeonBytes}/>
     <NeonMetricRow label="数据传输（项目快照）" metric={data.transfer} quota={free?NEON_FREE_LIMITS.publicTransferBytesPerProject:null} format={formatNeonBytes}/>
     <NeonMetricRow label="Branches" metric={data.branches} quota={free?NEON_FREE_LIMITS.branchesPerProject:null} format={v=>String(v)+" 个"}/>
-    {(data.periodStart||data.periodEnd)&&<p className="neon-period">当前用量周期：{data.periodStart?formatNeonDate(data.periodStart):"未知"} — {data.periodEnd?formatNeonDate(data.periodEnd):"未知"}</p>}
+    {(data.periodStart||data.periodEnd)&&<p className="neon-period">Compute / 数据传输统计周期：{data.periodStart?formatNeonDate(data.periodStart):"未知"} — {data.periodEnd?formatNeonDate(data.periodEnd):"未知"}</p>}
     {data.branchItems.length>0&&<details className="neon-branches"><summary>查看 Branch 明细（{data.branchItems.length}）</summary>
      {data.branchItems.map(branch=><div className="neon-branch-row" key={branch.id}>
       <span><strong>{branch.name}</strong>{branch.isDefault&&<em>默认</em>}<small>{branch.currentState}</small></span>
