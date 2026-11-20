@@ -17,3 +17,9 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freequota-cloudflare-build
+          path: .cloudflare/output/v1/
+          include-hidden-files: true
+          retention-days: 1
