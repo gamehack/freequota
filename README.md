@@ -1,42 +1,36 @@
 # FreeQuota
 
-开源、低成本的 Supabase 多账号免费额度查看工具。用户登录管理页面时，使用各账号的 Supabase Personal Access Token 实时读取官方 Management API。
+个人使用的 Supabase 多账号管理与按需用量观察工具。
 
-- Cloudflare Workers + Static Assets + Hono + React
-- Neon PostgreSQL：单管理员、会话及**加密** PAT
-- 不使用 Cloudflare Access、Cron、后台采集或额度历史快照
-- 多账号单独查询，每次前端最多并发 2 个账号；失败互不影响
-- 未验证官方用量接口的指标明确显示“未支持”，不编造剩余额度
-- 只读 Supabase API，不创建/删除 Supabase 项目
+- Cloudflare Workers / React / Hono，Neon 仅存储管理员 Session 与加密 Supabase PAT。
+- 打开页面时实时请求官方 Management API，无 Cron、无后台采集、无用量历史快照。
+- 项目详情查询数据库文件系统使用情况和 API 请求量；依赖 PAT 权限及项目运行状态。
+- Free 组织展示 **官方套餐限额**（组织级、项目级明确区分），不等同于实际计费量。
+- Supabase 组织账单级 Egress、Storage、MAU、Edge Invocations、Logs 等实际用量没有确认可长期使用的公开接口，显示套餐限额及 [Supabase Usage](https://supabase.com/dashboard/org/_/usage) 官方入口，不计算虚假剩余量。
+- 所有 Supabase 请求均为只读；没有 Supabase 计费数据写入。
+- 当前磁盘/API 统计均是非计费指标，数据源：
+  - [Get disk utilization](https://supabase.com/docs/reference/api/v1-get-disk-utilization)
+  - [Get project usage API count](https://supabase.com/docs/reference/api/v1-get-project-usage-api-count)
+  - [官方套餐额度](https://supabase.com/docs/guides/platform/billing-on-supabase)
 
 ## 部署
 
-1. 在 Neon Free 项目中创建数据库，执行 `migrations/001_initial.sql`。
-2. 在 Cloudflare Worker 中设置 `ADMIN_BOOTSTRAP_PASSWORD` Secret（至少 14 位、随机且唯一）。第一次以用户名 `admin` 和此密码登录时，Worker 自动创建 Neon 管理员并保存 bcrypt 哈希；首次登录成功后删除该 Secret。
-3. 为 Worker 设置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两个 Secrets。后者是 **32 字节随机密钥的 Base64 编码**。请另行安全备份加密密钥。
-4. 安装依赖，执行 `cf deploy`（`cloudflare.config.ts` 指定 Worker 名称为 `freequota`）。如使用 GitHub Actions 自动部署，请在仓库 Secrets 配置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。未配置时 CI 仅检查代码，不发布。
-5. 为 Worker 绑定自己的域名，进入管理页添加 Supabase PAT。
+1. Neon 新建独立数据库，执行 `migrations/001_initial.sql`。
+2. Cloudflare Worker 配置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两项 Secrets。后者为 32 字节随机密钥的 Base64 编码，请保存离线备份。
+3. 首次管理员创建（仅当 admin_users 为空）：临时配置 `ADMIN_BOOTSTRAP_PASSWORD` Secret，首次使用 admin 和该密码成功登录后立即删除该 Secret。
+4. 在 GitHub Actions Secrets 配置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` 后，push main 将自动执行测试、构建和 `cf deploy`。
+5. 绑定自有域名并进入管理页添加 Supabase PAT。使用 Scoped PAT 时需授予项目设置读取、组织信息读取、分析统计读取权限。
 
-部署前先在非生产环境验证依赖版本、构建、登录和多账号查询。密码与 PAT 不属于开源仓库内容。
+### 安全与数据边界
 
-### API
+- Session Token 仅保存 SHA-256 哈希，Cookie 为 HttpOnly + Secure + SameSite=Strict。
+- 管理员密码以 pgcrypto bcrypt 哈希保存，Supabase PAT 使用 AES-256-GCM 加密，绝不写入前端。
+- 用量结果只作为此次请求响应，不写入 Neon。
+- `GET /api/accounts/:id/live` 查询每个项目的公开 Management API：
+  - `GET /v1/projects/{ref}/config/disk/util`
+  - `GET /v1/projects/{ref}/analytics/endpoints/usage.api-counts`
+- 同一账号每次最多自动查询前 12 个项目详情，以控制 API 外部子请求和频率。其他项目仍显示在列表，标为本次跳过。
+- 403/429/无数据均独立展示错误原因，不冒充 0。
+- 初始免费套餐额度为参考，不等于本月账单剩余量；账单需要到 Supabase 组织 Usage 页面查看。
 
-- `POST /api/auth/login`：用户名、密码登录
-- `POST /api/auth/logout`：注销会话
-- `GET /api/auth/me`：会话检查
-- `PUT /api/auth/password`：管理员修改密码并注销所有会话
-- `GET /api/accounts`：账号列表（不含 PAT）
-- `POST /api/accounts`：验证、加密保存新 PAT
-- `PATCH /api/accounts/:id`：编辑账号别名、备注、PAT
-- `DELETE /api/accounts/:id`：仅删除本工具的账号记录
-- `GET /api/accounts/:id/live`：实时查询指定账号
-
-### 安全
-
-Cookie 使用 `HttpOnly; Secure; SameSite=Strict`，Session 原文不落库。密码采用 pgcrypto bcrypt 验证。Supabase PAT 使用 AES-256-GCM 加密且只在 Worker 服务端解密。管理 API 禁止跨域写入及缓存。管理员登录错误会触发账户暂时锁定。
-
-**关于 Supabase 免费名额：**官方参考限制为每用户两个活跃 Free 项目，但组织 Owner/Admin 关系会影响新建资格。对于没有可靠官方查询接口的账单用量，FreeQuota 会注明未支持，而非显示虚假值。
-
-## License
-
-MIT
+MIT License.

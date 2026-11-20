@@ -137,28 +137,99 @@ function App(){
    </form></div>}
  </div>;
 }
-function LiveView({data}:{data:Live}){
+function formatBytes(bytes:number|null) {
+ if(bytes===null)return "—";
+ if(bytes===0)return "0 B";
+ const units=["B","KiB","MiB","GiB","TiB"];
+ const i=Math.min(Math.floor(Math.log(bytes)/Math.log(1024)),units.length-1);
+ return (bytes/Math.pow(1024,i)).toLocaleString("zh-CN",{maximumFractionDigits:2})+" "+units[i];
+}
+function formatCount(n:number|null) {
+ return n===null?"—":n.toLocaleString("zh-CN");
+}
+function statusLine(state:string,reason:string|null) {
+ return state==="available" ? "" : (reason || "官方接口未提供数据");
+}
+function ProjectUsage({p}:{p:import("./api").Project}) {
+ const disk=p.usage.disk, req=p.usage.apiRequests;
+ return <div className="project-usage">
+  <div className="usage-group">
+   <div className="usage-heading">
+    <strong>数据库磁盘（运行指标）</strong>
+    <a href="https://supabase.com/docs/reference/api/v1-get-disk-utilization" rel="noreferrer" target="_blank">官方接口</a>
+   </div>
+   {disk.state==="available"?<>
+    <div className="usage-grid">
+     <div><span>已占用</span><b>{formatBytes(disk.usedBytes)}</b></div>
+     <div><span>文件系统可用</span><b>{formatBytes(disk.freeBytes)}</b></div>
+     <div><span>总容量</span><b>{formatBytes(disk.capacityBytes)}</b></div>
+    </div>
+    <p className="usage-caption">物理文件系统容量，不等于账单中的数据库大小。
+     {disk.sampleAt?" 采样时间："+new Date(disk.sampleAt).toLocaleString("zh-CN"):""}</p>
+   </>:<p className="metric-unavailable">{statusLine(disk.state,disk.reason)}</p>}
+  </div>
+  <div className="usage-group">
+   <div className="usage-heading">
+    <strong>API 请求统计</strong>
+    <a href="https://supabase.com/docs/reference/api/v1-get-project-usage-api-count" rel="noreferrer" target="_blank">官方接口</a>
+   </div>
+   {req.state==="available"?<>
+    <div className="usage-grid">
+     <div><span>REST</span><b>{formatCount(req.rest)}</b></div>
+     <div><span>Auth</span><b>{formatCount(req.auth)}</b></div>
+     <div><span>Storage</span><b>{formatCount(req.storage)}</b></div>
+     <div><span>Realtime</span><b>{formatCount(req.realtime)}</b></div>
+    </div>
+    <p className="usage-caption">官方统计接口返回的请求数，不是本月计费量。
+     {req.sampleStart && req.sampleEnd ?
+       " 采样范围："+new Date(req.sampleStart).toLocaleString("zh-CN")+" 至 "+new Date(req.sampleEnd).toLocaleString("zh-CN")
+       :" 统计窗口由官方接口决定，当前未提供完整起止时间。"}
+    </p>
+   </>:<p className="metric-unavailable">{statusLine(req.state,req.reason)}</p>}
+  </div>
+ </div>;
+}
+function LiveView({data}:{data:Live}) {
  const unique=data.projects.filter((p,i,all)=>all.findIndex(q=>q.id===p.id)===i);
+ const freeOrgs=data.organizations.filter(o=>o.plan?.toLowerCase().includes("free"));
  return <div className="live">
   <div className="sync-line"><span className="dot green"/> 查询时间：{new Date(data.queriedAt).toLocaleString("zh-CN")}
-   {data.partial&&<span className="warn">部分组织信息未获取</span>}</div>
-  <div className="mini-stats"><span>组织 <b>{data.organizations.length}</b></span>
-   <span>可访问项目 <b>{unique.length}</b></span>
-   <span>运行中 <b>{unique.filter(p=>p.status.toUpperCase().startsWith("ACTIVE")).length}</b></span></div>
+   {data.partial&&<span className="warn">部分统计不可用</span>}</div>
+  <div className="mini-stats">
+   <span>组织 <b>{data.organizations.length}</b></span>
+   <span>项目 <b>{unique.length}</b></span>
+   <span>运行中 <b>{unique.filter(p=>p.status.toUpperCase().startsWith("ACTIVE")).length}</b></span>
+  </div>
   <h3>组织及套餐</h3>
   {data.organizations.length?data.organizations.map(o=><div className="item" key={o.id||o.slug}>
-    <span>{o.name} <small>({o.slug})</small></span><span className="pill">{o.plan||"未知套餐"}</span>
-   </div>):<p className="muted">未获得组织详情</p>}
-  <h3>项目</h3>
-  {unique.length?unique.map(p=><div className="item" key={p.id}>
+   <span>{o.name} <small>({o.slug})</small>{o.warning&&<small className="metric-unavailable">{o.warning}</small>}</span>
+   <span className="pill">{o.plan||"套餐未知"}</span>
+  </div>):<p className="muted">没有返回组织详情</p>}
+  <h3>项目实际运行数据</h3>
+  {unique.length?unique.map(p=><div className="project-section" key={p.id}>
+   <div className="item">
     <div><strong>{p.name}</strong><small>{p.id}{p.region?" · "+p.region:""}</small></div>
     <span className={"pill "+(p.status.toUpperCase().startsWith("ACTIVE")?"active":"")}>{p.status}</span>
-   </div>):<p className="muted">当前账号无可访问项目</p>}
-  <div className="quota-note"><strong>免费项目参考限制：每用户 2 个活跃 Free 项目</strong>
-   <p>实际能否新建项目受组织 Owner/Admin 成员关系影响，不能简单用 2 减去项目数量。</p></div>
-  <details><summary>其他免费额度指标</summary>
-   {data.metrics.map(m=><div className="item" key={m.key}><span>{m.name}</span><span className="muted">官方完整用量接口尚未验证</span></div>)}
-  </details>
+   </div>
+   <ProjectUsage p={p}/>
+  </div>):<p className="muted">当前账号无可访问项目</p>}
+  <h3>Free 官方套餐限额</h3>
+  {freeOrgs.length ? <>
+   <p className="usage-caption">适用于 Free 组织：{freeOrgs.map(o=>o.name).join("、")}。标注“组织”的额度不能按项目重复计算；标注“项目”的额度逐项目计算。</p>
+   <div className="quota-list">
+    {data.freePlanLimits.map(q=><div className="quota-row" key={q.key}>
+     <span>{q.label} <small>（{q.scope==="organization"?"组织":"项目"}）</small></span>
+     <strong>{q.quota}</strong>
+    </div>)}
+   </div>
+   <p className="usage-caption">上述数值是官方套餐上限，不表示已使用或剩余额度。
+    <a href="https://supabase.com/dashboard/org/_/usage" rel="noreferrer" target="_blank"> 查看 Supabase 官方账单用量</a>
+   </p>
+  </>:<p className="metric-unavailable">目前未识别到已确认的 Free 套餐组织，因此不按 Free 额度估算剩余容量。</p>}
+  <div className="quota-note">
+   <strong>免费项目参考上限：每用户 2 个活跃 Free 项目</strong>
+   <p>新建资格还受组织 Owner/Admin 关系影响。所有用量均为本次按需查询，不保存历史快照。</p>
+  </div>
  </div>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);
