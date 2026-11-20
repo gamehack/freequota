@@ -159,7 +159,7 @@ export function CloudflareDashboard(_props: Props) {
           <MetricCard label="请求次数" metric={live.data.workers.requests} />
           <MetricCard label="错误次数" metric={live.data.workers.errors} />
           <MetricCard label="Subrequests" metric={live.data.workers.subrequests} />
-          <MetricCard label="最高 CPU P99" metric={live.data.workers.cpuTimeP99Ms} />
+          <MetricCard label="最高 CPU P99" metric={live.data.workers.cpuTimeP99Ms} formatter={value => value.toFixed(2) + " ms"} />
         </MetricGrid>
         <ResourceRows>
           {live.data.workers.items.map(item => <div className="cf-resource-row" key={item.name}>

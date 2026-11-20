@@ -612,7 +612,10 @@ function buildKv(
     ? items.reduce((sum, item) => sum + (item.storageBytes.used ?? 0), 0)
     : null;
   const total = (key: "read" | "write" | "delete" | "list") =>
-    items.reduce((sum, item) => sum + (item[key].used ?? 0), 0);
+    operationRows.reduce((sum, row) => {
+      const action = textValue(object(row.dimensions)?.actionType).toLowerCase();
+      return sum + (action === key ? (numberValue(object(row.sum)?.requests) ?? 0) : 0);
+    }, 0);
 
   return {
     state: productState(listOk, operationsOk && storageOk),

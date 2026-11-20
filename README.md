@@ -2,14 +2,14 @@
 
 个人使用的 Supabase 多账号管理、Neon 免费额度观察与 Cloudflare 免费额度查询工具。
 
-- Cloudflare Workers / React / Hono；Neon 数据库仅保存管理员 Session、加密 Supabase PAT 和加密 Neon API Key。
+- Cloudflare Workers / React / Hono；Neon 数据库保存管理员 Session、加密 Supabase PAT、Neon API Key 和 Cloudflare API Token。
 - 打开页面时按需实时请求官方 API，无 Cron、无后台采集、无用量历史快照。
 - Supabase 模块：多账号管理、项目数据库磁盘运行指标及 API 请求量观察。
 - Neon 模块：单个 Neon API Key 管理其可访问的 Organizations 和 Projects，展示 Free Plan 的 Compute、PostgreSQL Storage、数据传输、Projects、Branches。
 - Neon PostgreSQL Storage 按 Neon 官方 Free Plan 指引，汇总项目所有 Branch 的 `logical_size`；不使用可能为 0 的 `data_storage_bytes_hour` 推算存储容量。
 - Neon 项目用量快照用于监控，不是账单计量数据；官方数据可能延迟。无法确认的指标显示不可用，不冒充 0。
 - Neon V1 不展示未经验证的 Object Storage、Functions、Auth MAU 实际用量。
-- 所有 Supabase Management API 和 Neon API 请求均为只读；凭证写入仅发生在 FreeQuota 自己的数据库。
+- Supabase Management API、Neon API、Cloudflare REST API 与 GraphQL Analytics 均为只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
 - 不保存 Supabase 或 Neon 的用量历史，不创建定时采集任务。
 
 ## 部署
@@ -18,7 +18,7 @@
 2. Cloudflare Worker 配置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两项 Secrets。后者为 32 字节随机密钥的 Base64 编码，请保存离线备份。
 3. 首次管理员创建（仅当 `admin_users` 为空）：临时配置 `ADMIN_BOOTSTRAP_PASSWORD` Secret，首次使用 admin 和该密码成功登录后立即删除该 Secret。
 4. 在 GitHub Actions Secrets 配置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`。Pull Request 只运行测试和构建；只有 push 到 `main` 才部署生产 Worker。
-5. 绑定自有域名并登录管理页。Supabase 模块添加 Supabase PAT；Neon 模块添加 Neon Personal API Key。
+5. 绑定自有域名并登录管理页。Supabase 模块添加 Supabase PAT；Neon 模块添加 Neon Personal API Key；Cloudflare 模块配置单账号只读 API Token。
 
 ### Neon API Key
 
@@ -61,3 +61,5 @@ MIT License.
 - R2 GB-month 只有在日峰值存储采样覆盖完整时才计算；缺失采样、权限不足、限流和 API 错误不会被当成零。
 - GraphQL Analytics 运行数据与最终账单数据可能存在口径差异；Pages 部署记录也不冒充官方最终构建计费数据。
 - Cloudflare API Token 只用于只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
+
+MIT License.
