@@ -144,14 +144,11 @@ function formatBytes(bytes:number|null) {
  const i=Math.min(Math.floor(Math.log(bytes)/Math.log(1024)),units.length-1);
  return (bytes/Math.pow(1024,i)).toLocaleString("zh-CN",{maximumFractionDigits:2})+" "+units[i];
 }
-function formatCount(n:number|null) {
- return n===null?"—":n.toLocaleString("zh-CN");
-}
 function statusLine(state:string,reason:string|null) {
  return state==="available" ? "" : (reason || "官方接口未提供数据");
 }
 function ProjectUsage({p}:{p:import("./api").Project}) {
- const disk=p.usage.disk, req=p.usage.apiRequests;
+ const disk=p.usage.disk;
  return <div className="project-usage">
   <div className="usage-group">
    <div className="usage-heading">
@@ -168,30 +165,11 @@ function ProjectUsage({p}:{p:import("./api").Project}) {
      {disk.sampleAt?" 采样时间："+new Date(disk.sampleAt).toLocaleString("zh-CN"):""}</p>
    </>:<p className="metric-unavailable">{statusLine(disk.state,disk.reason)}</p>}
   </div>
-  <div className="usage-group">
-   <div className="usage-heading">
-    <strong>API 请求统计</strong>
-    <a href="https://supabase.com/docs/reference/api/v1-get-project-usage-api-count" rel="noreferrer" target="_blank">官方接口</a>
-   </div>
-   {req.state==="available"?<>
-    <div className="usage-grid">
-     <div><span>REST</span><b>{formatCount(req.rest)}</b></div>
-     <div><span>Auth</span><b>{formatCount(req.auth)}</b></div>
-     <div><span>Storage</span><b>{formatCount(req.storage)}</b></div>
-     <div><span>Realtime</span><b>{formatCount(req.realtime)}</b></div>
-    </div>
-    <p className="usage-caption">官方统计接口返回的请求数，不是本月计费量。
-     {req.sampleStart && req.sampleEnd ?
-       " 采样范围："+new Date(req.sampleStart).toLocaleString("zh-CN")+" 至 "+new Date(req.sampleEnd).toLocaleString("zh-CN")
-       :" 统计窗口由官方接口决定，当前未提供完整起止时间。"}
-    </p>
-   </>:<p className="metric-unavailable">{statusLine(req.state,req.reason)}</p>}
-  </div>
+
  </div>;
 }
 function LiveView({data}:{data:Live}) {
  const unique=data.projects.filter((p,i,all)=>all.findIndex(q=>q.id===p.id)===i);
- const freeOrgs=data.organizations.filter(o=>o.plan?.toLowerCase().includes("free"));
  return <div className="live">
   <div className="sync-line"><span className="dot green"/> 查询时间：{new Date(data.queriedAt).toLocaleString("zh-CN")}
    {data.partial&&<span className="warn">部分统计不可用</span>}</div>
@@ -213,23 +191,7 @@ function LiveView({data}:{data:Live}) {
    </div>
    <ProjectUsage p={p}/>
   </div>):<p className="muted">当前账号无可访问项目</p>}
-  <h3>Free 官方套餐限额</h3>
-  {freeOrgs.length ? <>
-   <p className="usage-caption">适用于 Free 组织：{freeOrgs.map(o=>o.name).join("、")}。标注“组织”的额度不能按项目重复计算；标注“项目”的额度逐项目计算。</p>
-   <div className="quota-list">
-    {data.freePlanLimits.map(q=><div className="quota-row" key={q.key}>
-     <span>{q.label} <small>（{q.scope==="organization"?"组织":"项目"}）</small></span>
-     <strong>{q.quota}</strong>
-    </div>)}
-   </div>
-   <p className="usage-caption">上述数值是官方套餐上限，不表示已使用或剩余额度。
-    <a href="https://supabase.com/dashboard/org/_/usage" rel="noreferrer" target="_blank"> 查看 Supabase 官方账单用量</a>
-   </p>
-  </>:<p className="metric-unavailable">目前未识别到已确认的 Free 套餐组织，因此不按 Free 额度估算剩余容量。</p>}
-  <div className="quota-note">
-   <strong>免费项目参考上限：每用户 2 个活跃 Free 项目</strong>
-   <p>新建资格还受组织 Owner/Admin 关系影响。所有用量均为本次按需查询，不保存历史快照。</p>
-  </div>
+
  </div>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);

@@ -32,3 +32,16 @@ test("account mutations report invalid encryption-key configuration distinctly",
   assert.match(crypto,/material.trim\(\)/);
   assert.doesNotMatch(crypto,/console\.log\(.*material/);
 });
+
+test("dashboard hides non-billing API counts and Free plan quota sections",()=>{
+  const ui=readFileSync("src/web/main.tsx","utf8");
+  for(const obsolete of [
+    "API 请求统计",
+    "Free 官方套餐限额",
+    "freePlanLimits.map",
+    "免费项目参考上限",
+    "supabase.com/dashboard/org/_/usage",
+  ]) assert.equal(ui.includes(obsolete),false,`obsolete UI content: ${obsolete}`);
+  for(const preserved of ["添加账号","组织及套餐","项目实际运行数据","数据库磁盘（运行指标）"])
+    assert.ok(ui.includes(preserved),`missing retained UI: ${preserved}`);
+});
