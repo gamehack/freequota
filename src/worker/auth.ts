@@ -27,6 +27,17 @@ authRoutes.post("/login", async c => {
   if (!username || !password || username.length>64 || password.length>256)
     return c.json({error:"用户名或密码错误"},401);
   const sql = neon(c.env.DATABASE_URL);
+  // One-time bootstrap: a high-entropy password stored only in Cloudflare Secrets.
+  // Once an admin exists this branch is inert. Delete the secret after first login.
+  if (username === "admin" && c.env.ADMIN_BOOTSTRAP_PASSWORD &&
+      password.length >= 14 && password === c.env.ADMIN_BOOTSTRAP_PASSWORD) {
+    const existing = await sql`SELECT count(*)::int AS n FROM admin_users`;
+    if (Number(existing[0]?.n) === 0) {
+      await sql`INSERT INTO admin_users(username,password_hash)
+        VALUES('admin',crypt(${password},gen_salt('bf',10)))
+        ON CONFLICT (username) DO NOTHING`;
+    }
+  }
   const users = await sql`SELECT id,password_hash,locked_until FROM admin_users WHERE username=${username} LIMIT 1`;
   const u = users[0];
   if (!u || (u.locked_until && new Date(String(u.locked_until)).getTime()>Date.now()))
