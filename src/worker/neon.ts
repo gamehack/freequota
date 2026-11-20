@@ -112,7 +112,7 @@ export async function listNeonOrganizations(token: string): Promise<Array<{
 async function listOrganizationProjects(
   token: string,
   orgId: string,
-): Promise<{ projects: NeonProjectSummary[]; complete: boolean }> {
+): Promise<{ projects: NeonProjectSummary[]; complete: boolean; warning: string | null }> {
   const query = "?org_id=" + encodeURIComponent(orgId) + "&limit=" + PROJECT_PAGE_SIZE;
   const raw = object(await neonGet(token, "/projects" + query));
   if (!raw || !Array.isArray(raw.projects)) throw new NeonApiError(502);
@@ -125,9 +125,16 @@ async function listOrganizationProjects(
     createdAt: typeof project.created_at === "string" ? project.created_at : null,
   })).filter(project => project.id.length > 0);
   const pagination = object(raw.pagination);
+  const hasMore = Boolean(pagination?.cursor);
+  const unavailable = Array.isArray(raw.unavailable) && raw.unavailable.length > 0;
   return {
     projects,
-    complete: !pagination?.cursor,
+    complete: !hasMore && !unavailable,
+    warning: hasMore
+      ? "该组织项目超过 " + PROJECT_PAGE_SIZE + " 个，本次仅展示第一页。"
+      : unavailable
+        ? "Neon API 未能完整加载该组织项目，当前仅展示已返回项目。"
+        : null,
   };
 }
 
@@ -161,9 +168,7 @@ export async function getNeonOverview(token: string): Promise<NeonOverview> {
     async org => {
       try {
         const result = await listOrganizationProjects(token, org.id);
-        const warning = result.complete
-          ? null
-          : "该组织项目超过 " + PROJECT_PAGE_SIZE + " 个，本次仅展示第一页。";
+        const warning = result.warning;
         if (warning) warnings.push(org.name + "：" + warning);
         return {
           ...org,

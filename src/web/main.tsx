@@ -360,7 +360,8 @@ function NeonDashboard(){
   </section>
 
   {statusLoading?<div className="neon-state"><span className="spinner"/> 正在读取 Neon 配置…</div>:
-   !status?.configured?<section className="neon-setup">
+   status===null?<p className="error">{error||"无法读取 Neon 凭证状态"}</p>:
+   !status.configured?<section className="neon-setup">
     <div className="neon-setup-mark">N</div>
     <h2>尚未配置 Neon API Key</h2>
     <p>添加一个 Neon Personal API Key，即可读取该账号有权限访问的全部 Organization 和 Project。</p>
@@ -374,13 +375,14 @@ function NeonDashboard(){
    <>
     {error&&<p className="error">{error}</p>}
     {overview&&<div className="neon-summary-stats">
-     <div className="stat"><span>Organizations</span><strong>{organizations.length}</strong></div>
-     <div className="stat"><span>Projects</span><strong>{projectCount}</strong></div>
-     <div className="stat"><span>Free Organizations</span><strong>{freeOrganizations}</strong></div>
+     <div className="stat"><span>已加载 Organizations</span><strong>{organizations.length}</strong></div>
+     <div className="stat"><span>已列出 Projects</span><strong>{projectCount}</strong></div>
+     <div className="stat"><span>已加载 Free Organizations</span><strong>{freeOrganizations}</strong></div>
      <div className="stat"><span>项目用量详情</span><strong>{progress.done}/{progress.total}</strong></div>
     </div>}
     {overview&&<div className="neon-data-note">
      <span>查询时间：{new Date(overview.queriedAt).toLocaleString("zh-CN")}</span>
+     {status.updatedAt&&<span>API Key 更新：{formatNeonDate(status.updatedAt)}</span>}
      <span>Compute / 数据传输为项目快照，可能延迟，不是账单计量数据；PostgreSQL Storage 按 Branch logical_size 汇总。</span>
     </div>}
     {overview?.partial&&<div className="neon-warning">{overview.warnings.join("；")}</div>}
@@ -405,7 +407,7 @@ function NeonDashboard(){
 function NeonOrganizationCard({org,projectLoads,onRefreshProject}:{org:NeonOrganization;projectLoads:Record<string,NeonProjectLoad>;onRefreshProject:(id:string)=>void}){
  const free=isFreeNeonPlan(org.plan);
  const storageMetrics=org.projects.map(project=>projectLoads[project.id]?.data?.storage);
- const storageComplete=org.projects.length===0||storageMetrics.every(metric=>metric?.state==="available");
+ const storageComplete=org.projectListComplete&&(org.projects.length===0||storageMetrics.every(metric=>metric?.state==="available"));
  const storageUsed=storageComplete?storageMetrics.reduce((sum,metric)=>sum+(metric?.used??0),0):null;
  const storageMetric:NeonMetric=storageComplete
   ?{state:"available",used:storageUsed??0,reason:null}
@@ -417,7 +419,7 @@ function NeonOrganizationCard({org,projectLoads,onRefreshProject}:{org:NeonOrgan
    <div className="neon-org-meta"><span className="plan-tag">{org.plan||"套餐未知"}</span><span className="count-tag">{loaded}/{org.projectCount} 项目已查询</span></div>
   </header>
   <div className="neon-org-metrics">
-   <NeonMetricRow label="组织 Projects" metric={{state:"available",used:org.projectCount,reason:null}} quota={free?NEON_FREE_LIMITS.projectsPerOrganization:null} format={v=>String(v)+" 个"}/>
+   <NeonMetricRow label="组织 Projects" metric={org.projectListComplete?{state:"available",used:org.projectCount,reason:null}:{state:"unavailable",used:null,reason:org.warning||"组织项目列表未完整获取"}} quota={free?NEON_FREE_LIMITS.projectsPerOrganization:null} format={v=>String(v)+" 个"}/>
    <NeonMetricRow label="组织 PostgreSQL Storage" metric={storageMetric} quota={free?NEON_FREE_LIMITS.postgresStorageBytesPerOrganization:null} format={formatNeonBytes}/>
   </div>
   {org.warning&&<p className="neon-warning">{org.warning}</p>}
