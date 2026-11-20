@@ -19,3 +19,82 @@
 
 
 @media(max-width:440px){.usage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-grid b{font-size:13px}}
+
+/* V2 compact multi-account dashboard. The backend payload and PAT flows remain unchanged. */
+.main{max-width:1360px;padding:32px 24px 64px}
+.stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:24px}
+.stat{padding:15px 18px;min-width:0}
+.stat strong{font-size:27px}
+.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px;align-items:start}
+.card{min-width:0;box-shadow:0 4px 12px #03081222}
+.card-head{padding:16px 18px;align-items:flex-start}
+.account-identity{flex:1;min-width:0}
+.account-identity h2{margin:0;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.account-remark{display:block;margin-top:3px;font-size:12px;overflow-wrap:anywhere}
+.account-controls{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0;margin-left:10px}
+.query-tag,.status-tag,.plan-tag,.count-tag{border-radius:999px;font-size:11px;line-height:1.25;padding:4px 9px;white-space:nowrap;border:1px solid #35435a}
+.query-tag.success,.status-tag.active{color:#7bdab9;border-color:#286655;background:#16342e}
+.query-tag.error{color:#ffc0c0;border-color:#83464e;background:#3c212a}
+.query-tag.warning{color:#edc48a;border-color:#725438;background:#382d21}
+.query-tag.loading,.query-tag.idle,.status-tag.other{color:#a7bad2;background:#1b2a3b}
+.status-tag.paused{color:#9da9b9;background:#1e2939}
+.card-actions{display:flex;gap:5px}
+.card-actions button{font-size:12px;padding:5px 8px}
+.card-body{padding:14px 18px 16px}
+.account-overview{display:flex;flex-direction:column;gap:12px}
+.account-organizations{display:flex;flex-direction:column;gap:7px}
+.org-line{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0}
+.org-identity{min-width:0;flex:1}
+.org-identity strong{font-size:12px;font-weight:650;overflow-wrap:anywhere;display:block}
+.org-identity small{font-size:11px;display:block;margin-top:2px;overflow-wrap:anywhere}
+.plan-tag{color:#a9bad0;background:#1c2a3d;text-transform:capitalize;flex-shrink:0}
+.account-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.count-tag{background:#1b293a;border:0;color:#a9bad0}
+.count-tag b{color:#edf3fd;margin-left:4px}
+.account-meta time{margin-left:auto;color:#8799b2;font-size:11px;white-space:nowrap}
+.account-warning{margin:0;color:#f0c68d;font-size:11px;line-height:1.5}
+.projects-heading{font-size:12px;color:#b8c9de;font-weight:700;margin:18px 0 8px}
+.project-table{border:1px solid #2a394d;border-radius:10px;overflow:hidden}
+.project-table-head,.project-line{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(68px,.68fr) minmax(0,2.2fr);gap:9px;align-items:center;padding:10px 11px}
+.project-table-head{background:#1a293c;color:#8e9fb8;font-size:10px;padding-top:9px;padding-bottom:9px}
+.project-line{border-top:1px solid #29374c;min-height:61px}
+.project-identity{min-width:0}
+.project-identity strong{display:block;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.project-identity span{display:block;color:#8c9ab0;font-size:10px;line-height:1.5;margin-top:3px;overflow-wrap:anywhere}
+.project-state{min-width:0}
+.project-metrics{min-width:0}
+.project-metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;align-items:center}
+.project-metric{min-width:0}
+.project-metric span{display:none;color:#91a5bc;font-size:10px}
+.project-metric strong{font-size:11px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.project-unavailable{font-size:11px;line-height:1.5}
+.project-unavailable.warning{color:#eec48c}
+.disk-footnote{font-size:10px;color:#8999ad;margin:10px 0 0;line-height:1.5}
+.empty-projects{padding:12px 0;font-size:12px}
+@media(max-width:1199px){
+ .project-table-head{display:none}
+ .project-line{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:11px 12px}
+ .project-metrics{grid-column:1/-1}
+ .project-metrics-grid{gap:9px}
+ .project-metric span{display:block}
+ .project-metric strong{display:block;margin-top:2px}
+}
+@media(max-width:800px){
+ .main{padding:24px 16px 48px}
+ .cards{grid-template-columns:1fr}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .stat{padding:13px}
+ .stat strong{font-size:23px}
+}
+@media(max-width:440px){
+ .header{gap:8px}
+ .brand span{display:none}
+ .page-heading h1{font-size:25px}
+ .card-head{padding:13px;gap:8px}
+ .card-body{padding:12px 13px 14px}
+ .card-actions{gap:2px}
+ .card-actions button{padding:5px 6px}
+ .account-controls{margin-left:5px}
+ .account-meta time{margin-left:0;width:100%}
+ .project-metric strong{font-size:10px}
+}

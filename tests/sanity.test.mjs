@@ -45,3 +45,18 @@ test("dashboard hides non-billing API counts and Free plan quota sections",()=>{
   for(const preserved of ["添加账号","组织及套餐","项目实际运行数据","数据库磁盘（运行指标）"])
     assert.ok(ui.includes(preserved),`missing retained UI: ${preserved}`);
 });
+
+test("compact dashboard renders organization, project and disk data without old panels",()=>{
+ const ui=readFileSync("src/web/main.tsx","utf8");
+ const css=readFileSync("src/web/styles.css","utf8");
+ assert.match(ui,/summarizeDashboard\(accounts\.length/);
+ assert.match(ui,/hasVisibleIssues\(state\.data\)/);
+ assert.match(ui,/role="table"/);
+ assert.match(ui,/className="project-line"/);
+ assert.match(ui,/数据库磁盘/);
+ assert.match(ui,/项目列表/);
+ assert.match(css,/\.project-metrics-grid/);
+ assert.match(css,/@media\(max-width:440px\)/);
+ for(const old of ["API 请求统计","Free 官方套餐限额","免费项目参考上限","部分统计不可用"])
+   assert.equal(ui.includes(old),false);
+});

@@ -1,6 +1,7 @@
 import { useEffect,useState } from "react";
 import { createRoot } from "react-dom/client";
-import { api,type Account,type Live } from "./api";
+import { api,type Account,type Live,type Project } from "./api";
+import { summarizeDashboard, isProjectRunning, isProjectPaused, hasVisibleIssues } from "./overview";
 import "./styles.css";
 
 type LoadState={loading:boolean;data?:Live;error?:string};
@@ -78,10 +79,11 @@ function App(){
      setChanging(false);setOldPassword("");setNewPassword("");setLogged(false);
    }catch(e){setChangeError(e instanceof Error?e.message:String(e));}
  }
+ const overview=summarizeDashboard(accounts.length,Object.values(live).map(entry=>entry.data));
  if(logged===null)return <div className="center"><span className="spinner"/> 加载中</div>;
  if(!logged)return <main className="auth-page">
    <form className="auth-card" onSubmit={login}>
-    <div className="mark">FQ</div><h1>FreeQuota</h1><p>Supabase 多账号免费额度管理</p>
+    <div className="mark">FQ</div><h1>FreeQuota</h1><p>Supabase 多账号管理控制台</p>
     <label>管理员用户名<input autoComplete="username" maxLength={64} required value={username} onChange={e=>setUsername(e.target.value)}/></label>
     <label>密码<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label>
     {authError&&<p className="error">{authError}</p>}
@@ -96,27 +98,44 @@ function App(){
   </header>
   <main className="main">
    <section className="page-heading"><div><div className="eyebrow">SUPABASE / MANAGEMENT</div><h1>Supabase 账号</h1>
-    <p>打开页面即查询官方实时数据；无定时任务，也不保存用量历史。</p></div>
+    <p>实时查询组织、项目状态及数据库磁盘运行指标。</p></div>
     <div className="actions"><button onClick={()=>void refreshAll(accounts)} disabled={!accounts.length}>↻ 刷新全部</button>
     <button className="primary" onClick={()=>{setForm({alias:"",remark:"",token:""});setFormError("");}}>＋ 添加账号</button></div>
    </section>
-   <div className="stats"><div className="stat"><span>已管理账号</span><strong>{accounts.length}</strong></div>
-    <div className="stat"><span>成功查询</span><strong>{Object.values(live).filter(x=>!!x.data).length}</strong></div>
-    <div className="stat"><span>可访问项目（已去重）</span><strong>{new Set(Object.values(live).flatMap(x=>x.data?.projects.map(p=>p.id)||[])).size}</strong></div>
+   <div className="stats" aria-label="全局概览">
+    <div className="stat"><span>Supabase 账号</span><strong>{overview.accounts}</strong></div>
+    <div className="stat"><span>组织（已去重）</span><strong>{overview.organizations}</strong></div>
+    <div className="stat"><span>项目（已去重）</span><strong>{overview.projects}</strong></div>
+    <div className="stat"><span>运行中</span><strong>{overview.active}</strong></div>
    </div>
    {listError&&<p className="error">{listError}</p>}
    {!accounts.length&&!listError?<div className="empty"><strong>尚未添加 Supabase 账号</strong><p>点击右上角「添加账号」，输入账号别名与 Personal Access Token。</p></div>:null}
-   <section className="cards">{accounts.map(a=><article className="card" key={a.id}>
-      <div className="card-head"><div><h2>{a.alias}</h2><span className="muted">{a.remark||"未填写备注"}</span></div>
-       <div className="card-actions"><button title="刷新" onClick={()=>void refreshOne(a.id)}>↻</button>
-       <button onClick={()=>{setForm({id:a.id,alias:a.alias,remark:a.remark,token:""});setFormError("");}}>编辑</button>
-       <button className="danger-text" onClick={()=>void deleteAccount(a)}>删除</button></div>
+   <section className="cards" aria-label="Supabase 账号列表">{accounts.map(a=>{
+    const state=live[a.id];
+    const queryLabel=state?.loading?"查询中":state?.error?"查询异常":state?.data?(hasVisibleIssues(state.data)?"部分数据异常":"查询成功"):"待查询";
+    const queryClass=state?.error?"error":state?.loading?"loading":state?.data?(hasVisibleIssues(state.data)?"warning":"success"):"idle";
+    return <article className="card" key={a.id}>
+     <header className="card-head">
+      <div className="account-identity">
+       <h2 title={a.alias}>{a.alias}</h2>
+       {a.remark&&<span className="muted account-remark">{a.remark}</span>}
       </div>
-      <div className="card-body">{live[a.id]?.loading?<div className="loading"><span className="spinner"/> 正在向 Supabase 查询…</div>:
-        live[a.id]?.error?<div className="error">查询失败：{live[a.id].error}<br/><button onClick={()=>void refreshOne(a.id)}>重试</button></div>:
-        live[a.id]?.data?<LiveView data={live[a.id].data!}/>:<div className="muted">尚未查询</div>}
+      <div className="account-controls">
+       <span className={"query-tag "+queryClass} aria-live="polite">{queryLabel}</span>
+       <div className="card-actions">
+        <button title="刷新此账号" aria-label={"刷新账号 "+a.alias} onClick={()=>void refreshOne(a.id)}>↻</button>
+        <button onClick={()=>{setForm({id:a.id,alias:a.alias,remark:a.remark,token:""});setFormError("");}}>编辑</button>
+        <button className="danger-text" onClick={()=>void deleteAccount(a)}>删除</button>
+       </div>
       </div>
-     </article>)}</section>
+     </header>
+     <div className="card-body">
+      {state?.loading?<div className="loading"><span className="spinner"/> 正在查询 Supabase 组织及项目…</div>:
+       state?.error?<div className="error">查询失败：{state.error}<div><button onClick={()=>void refreshOne(a.id)}>重试</button></div></div>:
+       state?.data?<LiveView data={state.data}/>:<div className="muted">尚未查询</div>}
+     </div>
+    </article>;
+   })}</section>
   </main>
   <footer>FreeQuota · 官方 API 实时查询 · 无历史用量存储</footer>
   {form&&<div className="overlay" role="presentation"><form className="modal" onSubmit={saveAccount}>
@@ -137,61 +156,74 @@ function App(){
    </form></div>}
  </div>;
 }
-function formatBytes(bytes:number|null) {
+function formatBytes(bytes:number|null):string {
  if(bytes===null)return "—";
  if(bytes===0)return "0 B";
  const units=["B","KiB","MiB","GiB","TiB"];
  const i=Math.min(Math.floor(Math.log(bytes)/Math.log(1024)),units.length-1);
  return (bytes/Math.pow(1024,i)).toLocaleString("zh-CN",{maximumFractionDigits:2})+" "+units[i];
 }
-function statusLine(state:string,reason:string|null) {
- return state==="available" ? "" : (reason || "官方接口未提供数据");
+function projectStatus(status:string):{label:string;type:string} {
+ if(isProjectRunning(status))return {label:"运行中",type:"active"};
+ if(isProjectPaused(status))return {label:"已暂停",type:"paused"};
+ return {label:status||"未知",type:"other"};
 }
-function ProjectUsage({p}:{p:import("./api").Project}) {
- const disk=p.usage.disk;
- return <div className="project-usage">
-  <div className="usage-group">
-   <div className="usage-heading">
-    <strong>数据库磁盘（运行指标）</strong>
-    <a href="https://supabase.com/docs/reference/api/v1-get-disk-utilization" rel="noreferrer" target="_blank">官方接口</a>
-   </div>
-   {disk.state==="available"?<>
-    <div className="usage-grid">
-     <div><span>已占用</span><b>{formatBytes(disk.usedBytes)}</b></div>
-     <div><span>文件系统可用</span><b>{formatBytes(disk.freeBytes)}</b></div>
-     <div><span>总容量</span><b>{formatBytes(disk.capacityBytes)}</b></div>
-    </div>
-    <p className="usage-caption">物理文件系统容量，不等于账单中的数据库大小。
-     {disk.sampleAt?" 采样时间："+new Date(disk.sampleAt).toLocaleString("zh-CN"):""}</p>
-   </>:<p className="metric-unavailable">{statusLine(disk.state,disk.reason)}</p>}
+function ProjectRow({project}:{project:Project}) {
+ const status=projectStatus(project.status);
+ const disk=project.usage.disk;
+ const available=isProjectRunning(project.status)&&disk.state==="available";
+ const reason=isProjectPaused(project.status)
+   ?"项目已暂停，未查询磁盘指标"
+   :disk.reason||"磁盘指标暂不可用";
+ return <div className="project-line" role="row">
+  <div className="project-identity" role="cell">
+   <strong title={project.name}>{project.name}</strong>
+   <span title={project.id}>{project.region}{project.region&&" · "}{project.id}</span>
   </div>
-
+  <div role="cell" className="project-state"><span className={"status-tag "+status.type} title={project.status}>{status.label}</span></div>
+  <div role="cell" className="project-metrics">
+   {available?<div className="project-metrics-grid">
+     <div className="project-metric"><span>已占用</span><strong>{formatBytes(disk.usedBytes)}</strong></div>
+     <div className="project-metric"><span>可用空间</span><strong>{formatBytes(disk.freeBytes)}</strong></div>
+     <div className="project-metric"><span>总容量</span><strong>{formatBytes(disk.capacityBytes)}</strong></div>
+    </div>:<span className={"project-unavailable "+(isProjectPaused(project.status)?"muted":"warning")}>{reason}</span>}
+  </div>
  </div>;
 }
 function LiveView({data}:{data:Live}) {
  const unique=data.projects.filter((p,i,all)=>all.findIndex(q=>q.id===p.id)===i);
+ const running=unique.filter(p=>isProjectRunning(p.status)).length;
+ const warned=hasVisibleIssues(data);
  return <div className="live">
-  <div className="sync-line"><span className="dot green"/> 查询时间：{new Date(data.queriedAt).toLocaleString("zh-CN")}
-   {data.partial&&<span className="warn">部分统计不可用</span>}</div>
-  <div className="mini-stats">
-   <span>组织 <b>{data.organizations.length}</b></span>
-   <span>项目 <b>{unique.length}</b></span>
-   <span>运行中 <b>{unique.filter(p=>p.status.toUpperCase().startsWith("ACTIVE")).length}</b></span>
-  </div>
-  <h3>组织及套餐</h3>
-  {data.organizations.length?data.organizations.map(o=><div className="item" key={o.id||o.slug}>
-   <span>{o.name} <small>({o.slug})</small>{o.warning&&<small className="metric-unavailable">{o.warning}</small>}</span>
-   <span className="pill">{o.plan||"套餐未知"}</span>
-  </div>):<p className="muted">没有返回组织详情</p>}
-  <h3>项目实际运行数据</h3>
-  {unique.length?unique.map(p=><div className="project-section" key={p.id}>
-   <div className="item">
-    <div><strong>{p.name}</strong><small>{p.id}{p.region?" · "+p.region:""}</small></div>
-    <span className={"pill "+(p.status.toUpperCase().startsWith("ACTIVE")?"active":"")}>{p.status}</span>
+  <div className="account-overview">
+   <div className="account-organizations">
+    {data.organizations.length?data.organizations.map(o=><div className="org-line" key={o.slug||o.id}>
+      <div className="org-identity">
+       <strong title={o.name}>{o.name}</strong>
+       <small title={o.slug}>{o.slug}</small>
+       {o.warning&&<small className="metric-unavailable">{o.warning}</small>}
+      </div>
+      <span className="plan-tag">{o.plan||"套餐未知"}</span>
+     </div>):<span className="metric-unavailable">未获得组织信息</span>}
    </div>
-   <ProjectUsage p={p}/>
-  </div>):<p className="muted">当前账号无可访问项目</p>}
-
+   <div className="account-meta">
+    <span className="count-tag">项目 <b>{unique.length}</b></span>
+    <span className="count-tag">运行中 <b>{running}</b></span>
+    <time dateTime={data.queriedAt} title={"查询于 "+new Date(data.queriedAt).toLocaleString("zh-CN")}>
+     {new Date(data.queriedAt).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",second:"2-digit"})} 更新
+    </time>
+   </div>
+   {warned&&<p className="account-warning">部分可见项目的磁盘数据或组织信息不可用</p>}
+  </div>
+  <div className="projects-heading">项目列表</div>
+  {unique.length?<div className="project-table" role="table" aria-label="项目状态与数据库磁盘运行指标">
+   <div className="project-table-head" role="row">
+    <span role="columnheader">项目</span><span role="columnheader">状态</span>
+    <div className="project-metrics-grid" role="columnheader"><span>已占用</span><span>可用空间</span><span>总容量</span></div>
+   </div>
+   {unique.map(p=><ProjectRow project={p} key={p.id}/>)}
+  </div>:<p className="muted empty-projects">暂无可访问项目</p>}
+  <p className="disk-footnote">磁盘数据是文件系统运行指标，不代表 Supabase 账单用量。</p>
  </div>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);
