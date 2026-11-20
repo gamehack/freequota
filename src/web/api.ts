@@ -9,7 +9,7 @@ export type Live={
 export async function api<T>(path:string, init:RequestInit={}):Promise<T>{
   const response=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",
     headers:{"Content-Type":"application/json",...(init.headers||{})},...init});
-  const json=await response.json().catch(()=>({error:"服务返回无效内容"}));
+  const json:any=await response.json().catch(()=>({error:"服务返回无效内容"}));
   if(!response.ok) throw new Error(json.error||"HTTP "+response.status);
   return json as T;
 }
