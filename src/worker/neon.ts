@@ -86,10 +86,15 @@ export function safeNeonError(error: unknown): string {
     : "Neon 官方 API 查询失败，请稍后重试";
 }
 
-export function neonErrorStatus(error: unknown): number {
+export function neonErrorStatus(error: unknown): 401 | 403 | 404 | 429 | 502 {
   if (!(error instanceof NeonApiError)) return 502;
-  if ([401, 403, 404, 429].includes(error.status)) return error.status;
-  return 502;
+  switch (error.status) {
+    case 401: return 401;
+    case 403: return 403;
+    case 404: return 404;
+    case 429: return 429;
+    default: return 502;
+  }
 }
 
 export async function listNeonOrganizations(token: string): Promise<Array<{
