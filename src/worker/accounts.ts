@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { neon } from "@neondatabase/serverless";
-import { encryptToken,decryptToken } from "./crypto";
+import { encryptToken,decryptToken,EncryptionConfigurationError } from "./crypto";
 import { validateSupabase,getSupabaseLive } from "./supabase";
 import type { AppEnv } from "./types";
 export const accountRoutes=new Hono<AppEnv>();
@@ -19,7 +19,14 @@ accountRoutes.post("/",async c=>{
     return c.json({error:"账号别名或 Token 格式无效"},400);
   try{await validateSupabase(token);}
   catch(e){return c.json({error:"Supabase Token 验证失败："+String(e)},422);}
-  const encrypted=await encryptToken(token,c.env.TOKEN_ENCRYPTION_KEY);
+  let encrypted: {ciphertext:string;iv:string};
+  try { encrypted=await encryptToken(token,c.env.TOKEN_ENCRYPTION_KEY); }
+  catch(e) {
+    if(e instanceof EncryptionConfigurationError)
+      return c.json({error:"服务加密密钥配置错误：请确认 Cloudflare 的 TOKEN_ENCRYPTION_KEY 是 32 字节随机密钥的 Base64 编码",code:"INVALID_ENCRYPTION_KEY"},503);
+    console.error("Supabase token encryption error",e instanceof Error?e.name:"unknown");
+    return c.json({error:"凭证加密失败，请检查 Worker 日志",code:"ENCRYPTION_FAILED"},500);
+  }
   const sql=neon(c.env.DATABASE_URL);
   try{
     const r=await sql`INSERT INTO supabase_accounts(alias,remark,token_ciphertext,token_iv)
@@ -41,7 +48,14 @@ accountRoutes.patch("/:id",async c=>{
       const token=b.token.trim();
       if(token.length<10||token.length>512)return c.json({error:"Token 无效"},400);
       try{await validateSupabase(token);}catch(e){return c.json({error:"新 Token 验证失败："+String(e)},422);}
-      const enc=await encryptToken(token,c.env.TOKEN_ENCRYPTION_KEY);
+      let enc: {ciphertext:string;iv:string};
+      try { enc=await encryptToken(token,c.env.TOKEN_ENCRYPTION_KEY); }
+      catch(e) {
+        if(e instanceof EncryptionConfigurationError)
+          return c.json({error:"服务加密密钥配置错误：请检查 TOKEN_ENCRYPTION_KEY 的 Base64 格式和长度",code:"INVALID_ENCRYPTION_KEY"},503);
+        console.error("Supabase token encryption error",e instanceof Error?e.name:"unknown");
+        return c.json({error:"凭证加密失败，请检查 Worker 日志",code:"ENCRYPTION_FAILED"},500);
+      }
       rows=await sql`UPDATE supabase_accounts SET alias=${alias},remark=${remark},
         token_ciphertext=${enc.ciphertext},token_iv=${enc.iv},updated_at=now()
         WHERE id=${id} RETURNING id,alias,remark,updated_at`;
