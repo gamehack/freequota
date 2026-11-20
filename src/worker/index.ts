@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { authRoutes,requireAdmin } from "./auth";
 import { accountRoutes } from "./accounts";
+import { neonRoutes } from "./neon-credentials";
 import type { AppEnv } from "./types";
 
 const app=new Hono<AppEnv>();
@@ -22,6 +23,7 @@ app.use("/api/*",async(c,next)=>{
 app.get("/api/health",c=>c.json({status:"ok",service:"freequota"}));
 app.route("/api/auth",authRoutes);
 app.route("/api/accounts",accountRoutes);
+app.route("/api/neon",neonRoutes);
 app.notFound(c=>c.json({error:"Not found"},404));
 app.onError((e,c)=>{console.error("request failure",e instanceof Error?e.name:"unknown");return c.json({error:"服务暂时不可用"},500);});
 export default app;
