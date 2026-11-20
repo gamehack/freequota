@@ -18,7 +18,7 @@ test("Neon read endpoints are mounted behind the existing administrator middlewa
   const worker = readFileSync("src/worker/index.ts", "utf8");
   const routes = readFileSync("src/worker/neon-credentials.ts", "utf8");
   assert.match(worker, /requireAdmin\(c,next\)/);
-  assert.match(worker, /app\.route\("\/api\/neon", neonRoutes\)/);
+  assert.match(worker, /app\.route\("\/api\/neon",neonRoutes\)/);
   assert.match(routes, /neonRoutes\.get\("\/live"/);
   assert.match(routes, /neonRoutes\.get\("\/projects\/:projectId\/live"/);
 });
