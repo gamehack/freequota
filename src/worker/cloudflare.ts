@@ -161,13 +161,14 @@ async function listPaged(
   path: string,
   perPage: number,
   maxPages = MAX_LIST_PAGES,
+  filters: Record<string, string | number> = {},
 ): Promise<{ items: Obj[]; complete: boolean }> {
   const items: Obj[] = [];
   let page = 1;
   let totalPages = 1;
   let complete = true;
   while (page <= totalPages && page <= maxPages) {
-    const response = await cloudflareGet(token, path, { page, per_page: perPage });
+    const response = await cloudflareGet(token, path, { ...filters, page, per_page: perPage });
     items.push(...array(response.result));
     const info = object(response.result_info);
     totalPages = numberValue(info?.total_pages) ?? page;
@@ -212,11 +213,11 @@ async function listKv(token: string, accountId: string): Promise<{ items: Obj[];
 }
 
 async function listPages(token: string, accountId: string): Promise<{ items: Obj[]; complete: boolean }> {
-  return listPaged(token, "/accounts/" + accountId + "/pages/projects", 25, 4);
+  return listPaged(token, "/accounts/" + accountId + "/pages/projects", 10, 4);
 }
 
 async function listZones(token: string, accountId: string): Promise<{ items: Obj[]; complete: boolean }> {
-  const result = await listPaged(token, "/zones", 50, 4);
+  const result = await listPaged(token, "/zones", 50, 4, { "account.id": accountId });
   return {
     ...result,
     items: result.items.filter(zone => textValue(object(zone.account)?.id) === accountId),

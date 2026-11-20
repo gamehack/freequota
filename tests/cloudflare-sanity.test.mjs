@@ -17,6 +17,8 @@ test("Cloudflare REST integration uses read-only GET and GraphQL query POST only
   const source = readFileSync("src/worker/cloudflare.ts", "utf8");
   assert.match(source, /method: "GET"/);
   assert.match(source, /method: "POST"/);
+  assert.match(source, /pages\/projects", 10, 4/);
+  assert.match(source, /"account\.id": accountId/);
   assert.doesNotMatch(source, /method: "DELETE"/);
   assert.doesNotMatch(source, /method: "PUT"/);
   assert.doesNotMatch(source, /method: "PATCH"/);
