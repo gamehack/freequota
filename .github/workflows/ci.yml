@@ -27,8 +27,8 @@ jobs:
           path: .cloudflare/output/v1/
           include-hidden-files: true
           retention-days: 1
-      - name: Deploy to Cloudflare (when configured)
-        if: ${{ env.CF_TOKEN != '' }}
+      - name: Deploy to Cloudflare (main branch only)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && env.CF_TOKEN != '' }}
         run: npx cf deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ env.CF_TOKEN }}
