@@ -42,7 +42,7 @@ test("dashboard hides non-billing API counts and Free plan quota sections",()=>{
     "免费项目参考上限",
     "supabase.com/dashboard/org/_/usage",
   ]) assert.equal(ui.includes(obsolete),false,`obsolete UI content: ${obsolete}`);
-  for(const preserved of ["添加账号","组织及套餐","项目实际运行数据","数据库磁盘（运行指标）"])
+  for(const preserved of ["添加账号","组织（已去重）","项目列表","磁盘数据是文件系统运行指标"])
     assert.ok(ui.includes(preserved),`missing retained UI: ${preserved}`);
 });
 
