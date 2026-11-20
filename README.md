@@ -1,6 +1,6 @@
 # FreeQuota
 
-个人使用的 Supabase 多账号管理与 Neon 免费额度观察工具。
+个人使用的 Supabase 多账号管理、Neon 免费额度观察与 Cloudflare 免费额度查询工具。
 
 - Cloudflare Workers / React / Hono；Neon 数据库仅保存管理员 Session、加密 Supabase PAT 和加密 Neon API Key。
 - 打开页面时按需实时请求官方 API，无 Cron、无后台采集、无用量历史快照。
@@ -14,7 +14,7 @@
 
 ## 部署
 
-1. Neon 新建独立数据库，执行 `migrations/001_initial.sql` 和 `migrations/002_neon_credentials.sql`。
+1. Neon 新建独立数据库，执行 `migrations/001_initial.sql`、`migrations/002_neon_credentials.sql` 和 `migrations/003_cloudflare_credentials.sql`。
 2. Cloudflare Worker 配置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两项 Secrets。后者为 32 字节随机密钥的 Base64 编码，请保存离线备份。
 3. 首次管理员创建（仅当 `admin_users` 为空）：临时配置 `ADMIN_BOOTSTRAP_PASSWORD` Secret，首次使用 admin 和该密码成功登录后立即删除该 Secret。
 4. 在 GitHub Actions Secrets 配置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`。Pull Request 只运行测试和构建；只有 push 到 `main` 才部署生产 Worker。
@@ -49,3 +49,15 @@
 - Neon API Key 只用于只读 GET 请求；FreeQuota 不调用 Neon 的创建、更新、删除接口。
 
 MIT License.
+
+
+## Cloudflare 单账号
+
+- Cloudflare 模块按单账号设计，使用自定义 API Token；Token 通过现有 AES-256-GCM 密钥加密保存到 Neon。
+- 打开页面时按需实时查询，不创建 Cron，不保存 Cloudflare 用量历史。
+- Workers、D1、R2、KV 使用 GraphQL Analytics；Workers、D1、R2、KV、Pages、DNS 资源清单使用只读 REST API。
+- 创建自定义 API Token 时需要：Account Analytics Read、Workers Scripts Read、D1 Read、Workers R2 Storage Read、Workers KV Storage Read、Pages Read、Zone Zone Read、Account DNS Settings Read。
+- Workers、D1、KV 按 UTC 日统计；R2 操作按月统计；Pages 部署记录为非跳过 Deployment 记录估算；DNS 配额按 Zone 读取。
+- R2 GB-month 只有在日峰值存储采样覆盖完整时才计算；缺失采样、权限不足、限流和 API 错误不会被当成零。
+- GraphQL Analytics 运行数据与最终账单数据可能存在口径差异；Pages 部署记录也不冒充官方最终构建计费数据。
+- Cloudflare API Token 只用于只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
