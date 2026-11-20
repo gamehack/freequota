@@ -42,7 +42,7 @@ authRoutes.post("/login", async c => {
   const u = users[0];
   if (!u || (u.locked_until && new Date(String(u.locked_until)).getTime()>Date.now()))
     return c.json({error:"用户名或密码错误，或账户暂时锁定"},401);
-  const result = await sql`SELECT (${password} = crypt(${password}, ${u.password_hash})) AS ok`;
+  const result = await sql`SELECT (${u.password_hash} = crypt(${password}, ${u.password_hash})) AS ok`;
   if (result[0]?.ok !== true) {
     await sql`UPDATE admin_users SET
       locked_until=CASE WHEN failed_attempts+1>=5 THEN now()+interval '15 minutes' ELSE locked_until END,
@@ -71,7 +71,7 @@ authRoutes.put("/password",async c=>{
   if(typeof old!=="string"||typeof password!=="string"||password.length<14||password.length>128)
     return c.json({error:"新密码至少14位"},400);
   const sql=neon(c.env.DATABASE_URL);
-  const check=await sql`SELECT (${old}=crypt(${old},password_hash)) AS ok FROM admin_users WHERE id=${c.get("adminId")}`;
+  const check=await sql`SELECT (password_hash=crypt(${old},password_hash)) AS ok FROM admin_users WHERE id=${c.get("adminId")}`;
   if(check[0]?.ok!==true) return c.json({error:"原密码错误"},403);
   await sql`UPDATE admin_users SET password_hash=crypt(${password},gen_salt('bf',10)),
     failed_attempts=0,locked_until=NULL,updated_at=now() WHERE id=${c.get("adminId")}`;
