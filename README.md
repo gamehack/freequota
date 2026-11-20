@@ -12,9 +12,9 @@
 ## 部署
 
 1. 在 Neon Free 项目中创建数据库，执行 `migrations/001_initial.sql`。
-2. 通过安全的一次性 SQL 操作设置管理员口令（使用 `crypt(password,gen_salt('bf',10))`），勿将密码写入版本库。
-3. 为 Worker 设置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两个 Secrets。后者是 **32 字节随机密钥的 Base64 编码**。
-4. 安装依赖，执行 `cf deploy`（`cloudflare.config.ts` 指定 Worker 名称为 `freequota`）。
+2. 在 Cloudflare Worker 中设置 `ADMIN_BOOTSTRAP_PASSWORD` Secret（至少 14 位、随机且唯一）。第一次以用户名 `admin` 和此密码登录时，Worker 自动创建 Neon 管理员并保存 bcrypt 哈希；首次登录成功后删除该 Secret。
+3. 为 Worker 设置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两个 Secrets。后者是 **32 字节随机密钥的 Base64 编码**。请另行安全备份加密密钥。
+4. 安装依赖，执行 `cf deploy`（`cloudflare.config.ts` 指定 Worker 名称为 `freequota`）。如使用 GitHub Actions 自动部署，请在仓库 Secrets 配置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。未配置时 CI 仅检查代码，不发布。
 5. 为 Worker 绑定自己的域名，进入管理页添加 Supabase PAT。
 
 部署前先在非生产环境验证依赖版本、构建、登录和多账号查询。密码与 PAT 不属于开源仓库内容。
