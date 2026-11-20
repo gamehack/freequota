@@ -6,6 +6,8 @@ export default defineConfig({
   worker: {
     name: "freequota",
     compatibilityDate: "2026-11-20",
+    workersDev: false,
+    previewUrls: false,
     entrypoint,
     assets: {
       runWorkerFirst: ["/api/*"],
