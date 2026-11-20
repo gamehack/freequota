@@ -22,3 +22,13 @@ test("bcrypt verification compares hash to hash, not plaintext to hash",()=>{
   assert.doesNotMatch(auth,/\$\{password\}\s*=\s*crypt\(\$\{password\},/);
   assert.doesNotMatch(auth,/\$\{old\}\s*=\s*crypt\(\$\{old\},/);
 });
+
+test("account mutations report invalid encryption-key configuration distinctly",()=>{
+  const accounts=readFileSync("src/worker/accounts.ts","utf8");
+  const crypto=readFileSync("src/worker/crypto.ts","utf8");
+  assert.match(accounts,/INVALID_ENCRYPTION_KEY/);
+  assert.match(accounts,/EncryptionConfigurationError/);
+  assert.match(crypto,/bytes.length !== 32/);
+  assert.match(crypto,/material.trim\(\)/);
+  assert.doesNotMatch(crypto,/console\.log\(.*material/);
+});
