@@ -63,3 +63,14 @@ MIT License.
 - Cloudflare API Token 只用于只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
 
 MIT License.
+
+
+## GitHub 单账号
+
+- GitHub 模块按一个个人账号设计；Fine-grained PAT 使用个人账户的 Plan: Read 最小权限。
+- 通过 GET /users/{username}/settings/billing/usage/summary 查询当前月个人账单汇总；该接口处于 Public Preview。
+- 尝试通过 GET /users/{username}/settings/billing/usage 查询仓库级计费明细。该接口要求账号已开放增强账单平台；如果不可用，账户级汇总仍正常展示。
+- GitHub Free 套餐参考：每月 $12 共享计算额度；Actions Artifacts 与 GitHub Packages 共用 500 MB 存储；Actions Cache 每仓库 10 GB；Packages 带宽 1 GB/月；Git LFS 存储 10 GB、带宽 10 GB/月；Codespaces 120 core-hours/月及 15 GB 存储。
+- $12 是美元计价的共享计算额度，不是所有 Runner 通用的固定分钟数。页面按 Billing API 的 grossAmount、discountAmount、netAmount 原值展示；不把折扣直接视为免费额度消耗，也不推算未经证实的剩余额度。
+- Artifacts / Packages 的计费周期用量不等于当前瞬时占用；Actions Cache 当前容量不由本版 Plan: Read 权限查询。
+- GitHub PAT 通过现有 AES-256-GCM 密钥加密保存到 Neon；只读 GET 请求；不读取或修改仓库代码，不保存用量历史，不创建 Cron。

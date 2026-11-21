@@ -4,12 +4,13 @@ import { api,type Account,type Live,type Project } from "./api";
 import { NEON_FREE_LIMITS,isFreeNeonPlan,type NeonMetric,type NeonOrganization,type NeonOverview,type NeonProjectLive,type NeonProjectSummary,type NeonStatus } from "../shared/neon";
 import { summarizeDashboard, isProjectRunning, isProjectPaused, hasVisibleIssues } from "./overview";
 import { CloudflareDashboard } from "./cloudflare";
+import { GitHubDashboard } from "./github";
 import "./styles.css";
 
 type LoadState={loading:boolean;data?:Live;error?:string};
 function App(){
  const [logged,setLogged]=useState<boolean|null>(null);
- const [activeModule,setActiveModule]=useState<"supabase"|"neon"|"cloudflare">("supabase");
+ const [activeModule,setActiveModule]=useState<"supabase"|"neon"|"cloudflare"|"github">("supabase");
  const [username,setUsername]=useState("admin");
  const [password,setPassword]=useState("");
  const [authError,setAuthError]=useState("");
@@ -103,6 +104,7 @@ function App(){
    <button type="button" className={activeModule==="supabase"?"selected":""} onClick={()=>setActiveModule("supabase")}>Supabase</button>
    <button type="button" className={activeModule==="neon"?"selected":""} onClick={()=>setActiveModule("neon")}>Neon</button>
    <button type="button" className={activeModule==="cloudflare"?"selected":""} onClick={()=>setActiveModule("cloudflare")}>Cloudflare</button>
+   <button type="button" className={activeModule==="github"?"selected":""} onClick={()=>setActiveModule("github")}>GitHub</button>
   </nav>
   {activeModule==="supabase" ? <main className="main">
    <section className="page-heading"><div><div className="eyebrow">SUPABASE / MANAGEMENT</div><h1>Supabase 账号</h1>
@@ -144,7 +146,7 @@ function App(){
      </div>
     </article>;
    })}</section>
-  </main> : activeModule==="neon" ? <NeonDashboard/> : <CloudflareDashboard/>}
+  </main> : activeModule==="neon" ? <NeonDashboard/> : activeModule==="cloudflare" ? <CloudflareDashboard/> : <GitHubDashboard/>}
   <footer>FreeQuota · 官方 API 实时查询 · 无历史用量存储</footer>
   {form&&<div className="overlay" role="presentation"><form className="modal" onSubmit={saveAccount}>
     <div className="modal-title"><h2>{form.id?"编辑账号":"添加 Supabase 账号"}</h2><button type="button" className="quiet" onClick={()=>setForm(null)}>✕</button></div>

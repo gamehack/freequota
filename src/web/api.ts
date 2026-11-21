@@ -32,6 +32,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export type {
+  GitHubOverview,
+  GitHubStatus,
+  GitHubProductSummary,
+  GitHubRepositoryUsage,
+  GitHubUsageItem,
+} from "../shared/github";
+
+export type {
   NeonBranch,
   NeonMetric,
   NeonMetricState,

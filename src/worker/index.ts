@@ -3,6 +3,7 @@ import { authRoutes,requireAdmin } from "./auth";
 import { accountRoutes } from "./accounts";
 import { neonRoutes } from "./neon-credentials";
 import { cloudflareRoutes } from "./cloudflare-credentials";
+import { githubRoutes } from "./github-credentials";
 import type { AppEnv } from "./types";
 
 const app=new Hono<AppEnv>();
@@ -26,6 +27,7 @@ app.route("/api/auth",authRoutes);
 app.route("/api/accounts",accountRoutes);
 app.route("/api/neon",neonRoutes);
 app.route("/api/cloudflare",cloudflareRoutes);
+app.route("/api/github",githubRoutes);
 app.notFound(c=>c.json({error:"Not found"},404));
 app.onError((e,c)=>{console.error("request failure",e instanceof Error?e.name:"unknown");return c.json({error:"服务暂时不可用"},500);});
 export default app;
