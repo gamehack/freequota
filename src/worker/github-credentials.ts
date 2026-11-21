@@ -15,8 +15,8 @@ type CredentialRow = {
 
 async function credential(c: any): Promise<CredentialRow | null> {
   const sql = neon(c.env.DATABASE_URL);
-  const rows = await sql\`SELECT username,token_ciphertext,token_iv,updated_at
-    FROM github_credentials WHERE id=1 LIMIT 1\`;
+  const rows = await sql`SELECT username,token_ciphertext,token_iv,updated_at
+    FROM github_credentials WHERE id=1 LIMIT 1`;
   return rows.length ? rows[0] as CredentialRow : null;
 }
 
@@ -64,21 +64,21 @@ githubRoutes.put("/credential", async c => {
   }
 
   const sql = neon(c.env.DATABASE_URL);
-  await sql\`INSERT INTO github_credentials(id,username,token_ciphertext,token_iv,key_version)
-    VALUES(1,\${username},\${encrypted.ciphertext},\${encrypted.iv},1)
+  await sql`INSERT INTO github_credentials(id,username,token_ciphertext,token_iv,key_version)
+    VALUES(1,${username},${encrypted.ciphertext},${encrypted.iv},1)
     ON CONFLICT (id) DO UPDATE SET
       username=EXCLUDED.username,
       token_ciphertext=EXCLUDED.token_ciphertext,
       token_iv=EXCLUDED.token_iv,
       key_version=1,
-      updated_at=now()\`;
+      updated_at=now()`;
 
   return c.json({ ok: true, username });
 });
 
 githubRoutes.delete("/credential", async c => {
   const sql = neon(c.env.DATABASE_URL);
-  await sql\`DELETE FROM github_credentials WHERE id=1\`;
+  await sql`DELETE FROM github_credentials WHERE id=1`;
   return c.json({ ok: true });
 });
 
