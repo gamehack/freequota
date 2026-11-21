@@ -138,9 +138,9 @@ export function GitHubDashboard() {
 
       <section className="gh-summary-grid" aria-label="GitHub 账单概览">
         <Summary label="GitHub Free 计算额度参考" value={"$" + GITHUB_FREE_LIMITS.includedComputeUsd.toFixed(2)} detail="每月共享计算额度" />
-        <Summary label="Actions 折前计量金额" value={money(actions?.grossAmount ?? (actions ? 0 : null))} detail="官方 grossAmount" />
-        <Summary label="Actions 官方折扣" value={money(actions?.discountAmount ?? (actions ? 0 : null))} detail="官方 discountAmount" />
-        <Summary label="Actions 净计费" value={money(actions?.netAmount ?? (actions ? 0 : null))} detail="官方 netAmount" />
+        <Summary label="Actions 折前计量金额" value={actions ? money(actions.grossAmount) : "$0.00"} detail="官方 grossAmount" />
+        <Summary label="Actions 官方折扣" value={actions ? money(actions.discountAmount) : "$0.00"} detail="官方 discountAmount" />
+        <Summary label="Actions 净计费" value={actions ? money(actions.netAmount) : "$0.00"} detail="官方 netAmount" />
       </section>
 
       <section className="gh-card">

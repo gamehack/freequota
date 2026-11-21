@@ -35,8 +35,8 @@ test("billing items preserve missing values instead of converting them to zero",
   const products = aggregateGitHubProducts(items);
   const actions = products.find(item => item.product === "Actions");
   const packages = products.find(item => item.product === "Packages");
-  assert.equal(actions.grossAmount, 0.92);
-  assert.equal(actions.discountAmount, 0.92);
+  assert.ok(Math.abs(actions.grossAmount - 0.92) < 1e-9);
+  assert.ok(Math.abs(actions.discountAmount - 0.92) < 1e-9);
   assert.equal(actions.netAmount, 0);
   assert.equal(packages.discountAmount, null);
 });

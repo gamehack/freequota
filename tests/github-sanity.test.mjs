@@ -35,7 +35,7 @@ test("GitHub provider calls are read-only and do not persist usage history", () 
 
 test("GitHub UI preserves official billing data boundaries", () => {
   const ui = readFileSync("src/web/github.tsx", "utf8");
-  assert.match(ui, /\\$12/);
+  assert.match(ui, /\$12/);
   assert.match(ui, /不推算未经证实的剩余额度/);
   assert.match(ui, /增强账单平台/);
   assert.match(ui, /Plan: Read/);
