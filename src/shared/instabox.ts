@@ -25,10 +25,21 @@ export type InstaboxCost = {
   vcpuHours: number | null;
   memGiBHours: number | null;
   storageGiBHours: number | null;
+  /** Egress quantity that was priced above the plan's included allowance, not total traffic. */
   egressGiB: number | null;
   ratedUntil: string | null;
   periodStart: string | null;
   periodEnd: string | null;
+};
+
+export type InstaboxEgressUsage = {
+  source: "usage_machines" | "unavailable";
+  bytes: number | null;
+  machineCount: number | null;
+  machineNames: string[];
+  from: string | null;
+  countedThrough: string | null;
+  reason: string | null;
 };
 
 export type InstaboxOverview = {
@@ -39,7 +50,9 @@ export type InstaboxOverview = {
   machines: InstaboxMetric;
   snapshots: InstaboxMetric;
   storedBytes: InstaboxMetric;
+  /** Total month-to-date machine egress from GET /v1/usage/machines. */
   egressGiB: InstaboxMetric;
+  egressUsage: InstaboxEgressUsage;
   limits: InstaboxLimits;
   cost: InstaboxCost;
   partial: boolean;
@@ -59,6 +72,8 @@ export const INSTABOX_FREE_REFERENCE_LIMITS = {
   egressGiB: 100,
   startsPerMinute: 3,
 } as const;
+
+const GIB_BYTES = 1024 * 1024 * 1024;
 
 type Obj = Record<string, unknown>;
 
@@ -112,7 +127,6 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
   const machinesUsed = numberValue(root.machines);
   const snapshotsUsed = numberValue(root.snapshots);
   const storedBytesUsed = numberValue(root.storedBytes);
-  const egressUsed = numberValue(rawCost?.egressGiB);
 
   const plan = stringValue(root.plan) ??
     stringValue(root.tier) ??
@@ -137,10 +151,19 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
   const snapshots = metric(snapshotsUsed, maxSnapshots, "snapshots");
   const storedBytes = metric(
     storedBytesUsed,
-    maxStoredGiB === null ? null : maxStoredGiB * 1024 * 1024 * 1024,
+    maxStoredGiB === null ? null : maxStoredGiB * GIB_BYTES,
     "storedBytes",
   );
-  const egressGiB = metric(egressUsed, effectiveEgressLimit, "cost.egressGiB");
+  const egressGiB = metric(null, effectiveEgressLimit, "usage/machines[].egressBytes");
+  const egressUsage: InstaboxEgressUsage = {
+    source: "unavailable",
+    bytes: null,
+    machineCount: null,
+    machineNames: [],
+    from: null,
+    countedThrough: null,
+    reason: "尚未读取机器级月度 Usage API",
+  };
 
   for (const [name, value] of [
     ["机器数量", machines],
@@ -164,7 +187,7 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
     vcpuHours: numberValue(rawCost?.vcpuHours),
     memGiBHours: numberValue(rawCost?.memGiBHours),
     storageGiBHours: numberValue(rawCost?.storageGiBHours),
-    egressGiB: egressUsed,
+    egressGiB: numberValue(rawCost?.egressGiB),
     ratedUntil: stringValue(rawCost?.ratedUntil),
     periodStart: stringValue(rawCost?.periodStart),
     periodEnd: stringValue(rawCost?.periodEnd),
@@ -179,9 +202,106 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
     snapshots,
     storedBytes,
     egressGiB,
+    egressUsage,
     limits,
     cost,
     partial: warnings.length > 0,
     warnings,
   };
+}
+
+export function parseInstaboxMachineUsage(raw: unknown): InstaboxEgressUsage {
+  const root = object(raw);
+  if (!root || !Array.isArray(root.machines)) {
+    throw new Error("InstaBox machine usage 响应缺少 machines 数组");
+  }
+
+  const rows = root.machines;
+  const reportedTotal = numberValue(root.total);
+  const machineCount = reportedTotal ?? rows.length;
+  if (machineCount > rows.length) {
+    throw new Error("InstaBox machine usage 分页数据不完整");
+  }
+
+  let bytes = 0;
+  const machineNames: string[] = [];
+  for (const value of rows) {
+    const machine = object(value);
+    const egressBytes = numberValue(machine?.egressBytes);
+    if (egressBytes === null) {
+      throw new Error("InstaBox machine usage 未返回有效的 egressBytes");
+    }
+    bytes += egressBytes;
+    const name = stringValue(machine?.name);
+    if (name) machineNames.push(name);
+  }
+
+  return {
+    source: "usage_machines",
+    bytes,
+    machineCount,
+    machineNames,
+    from: stringValue(root.from),
+    countedThrough: stringValue(root.to),
+    reason: null,
+  };
+}
+
+export function attachInstaboxMachineUsage(
+  overview: InstaboxOverview,
+  raw: unknown | null,
+  error?: string,
+): InstaboxOverview {
+  const warnings = overview.warnings.filter(warning => !warning.startsWith("本月出口流量"));
+  if (raw === null) {
+    const reason = error || "机器级月度 Usage API 暂不可用";
+    warnings.push("本月出口流量暂不可用：" + reason);
+    return {
+      ...overview,
+      egressGiB: metric(null, overview.limits.maxEgressGiB, "usage/machines[].egressBytes"),
+      egressUsage: {
+        source: "unavailable",
+        bytes: null,
+        machineCount: null,
+        machineNames: [],
+        from: null,
+        countedThrough: null,
+        reason,
+      },
+      partial: warnings.length > 0,
+      warnings,
+    };
+  }
+
+  try {
+    const usage = parseInstaboxMachineUsage(raw);
+    const egressGiB = usage.bytes === null ? null : usage.bytes / GIB_BYTES;
+    const egressMetric = metric(egressGiB, overview.limits.maxEgressGiB, "usage/machines[].egressBytes");
+    if (egressMetric.state !== "available") warnings.push("本月出口流量暂不可用：" + egressMetric.reason);
+    return {
+      ...overview,
+      egressGiB: egressMetric,
+      egressUsage: usage,
+      partial: warnings.length > 0,
+      warnings,
+    };
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : "机器级 Usage API 数据格式无效";
+    warnings.push("本月出口流量暂不可用：" + reason);
+    return {
+      ...overview,
+      egressGiB: metric(null, overview.limits.maxEgressGiB, "usage/machines[].egressBytes"),
+      egressUsage: {
+        source: "unavailable",
+        bytes: null,
+        machineCount: null,
+        machineNames: [],
+        from: null,
+        countedThrough: null,
+        reason,
+      },
+      partial: warnings.length > 0,
+      warnings,
+    };
+  }
 }

@@ -91,7 +91,7 @@ export function InstaboxDashboard() {
       <div>
         <div className="eyebrow">INSTABOX / FREE PLAN USAGE</div>
         <h1>InstaBox 免费额度</h1>
-        <p>通过官方 Usage API 查询 API Key 所属 Workspace 的机器、Snapshot、存储及月度出口流量。</p>
+        <p>通过官方账户 Usage API 和机器级 Usage API 查询套餐资源及本月实际出口流量。</p>
       </div>
       <div className="actions">
         {status?.configured && <button onClick={() => void refresh()} disabled={live.loading}>{live.loading ? "查询中…" : "↻ 刷新用量"}</button>}
@@ -134,7 +134,7 @@ export function InstaboxDashboard() {
       </div>
 
       <div className="ib-note">
-        机器数量、Snapshot 和存储占用来自 Usage API 的当前计数；月度出口流量来自 cost.egressGiB。官方账单按小时计量，出口流量及费用数据最多可能滞后约 1 小时。
+        机器数量、Snapshot 和存储占用来自 GET /v1/usage；月度实际出口流量来自 GET /v1/usage/machines 的 egressBytes。该接口按 UTC 自然月统计、按整小时计量，并每分钟最多重新计算一次。cost.egressGiB 仅代表超过套餐包含额度后参与计费的流量，不代表总出口流量。
       </div>
 
       {data.partial && <div className="ib-alert warning">
@@ -143,8 +143,10 @@ export function InstaboxDashboard() {
       </div>}
 
       <section className="ib-metric-grid" aria-label="InstaBox 当前用量">
-        <MetricCard emphasis label="本月出口流量" metric={data.egressGiB} formatter={formatGiB}
-          note="重点监控指标。Free 套餐包含 100 GiB/月；优先采用官方 API 返回的动态上限。" />
+        <MetricCard emphasis label="本月实际出口流量" metric={data.egressGiB} formatter={formatGiB}
+          note={data.egressUsage.countedThrough
+            ? "机器级 Usage API · 计量截至 " + formatDate(data.egressUsage.countedThrough)
+            : data.egressUsage.reason || "机器级 Usage API 暂不可用"} />
         <MetricCard label="机器数量" metric={data.machines} formatter={formatCount} />
         <MetricCard label="Snapshot 数量" metric={data.snapshots} formatter={formatCount} />
         <MetricCard label="已存储数据" metric={data.storedBytes} formatter={formatBytes} />
@@ -175,12 +177,14 @@ export function InstaboxDashboard() {
           <Cost label="剩余积分" value={money(data.cost.creditsUSD)} />
           <Cost label="已用积分" value={money(data.cost.creditsUsedUSD)} />
           <Cost label="超额用量" value={money(data.cost.overageUSD)} />
+          <Cost label="超额计费 Egress" value={quantity(data.cost.egressGiB, " GiB")} />
           <Cost label="已扣款" value={money(data.cost.chargedUSD)} />
           <Cost label="vCPU Hours" value={quantity(data.cost.vcpuHours, " h")} />
           <Cost label="Memory" value={quantity(data.cost.memGiBHours, " GiB·h")} />
           <Cost label="Storage" value={quantity(data.cost.storageGiBHours, " GiB·h")} />
         </div>
-        {(data.cost.periodStart || data.cost.periodEnd) && <p className="ib-period">统计周期（UTC）：{data.cost.periodStart ? formatDate(data.cost.periodStart) : "未知"} — {data.cost.periodEnd ? formatDate(data.cost.periodEnd) : "未知"}</p>}
+        {(data.cost.periodStart || data.cost.periodEnd) && <p className="ib-period">账单统计周期（UTC）：{data.cost.periodStart ? formatDate(data.cost.periodStart) : "未知"} — {data.cost.periodEnd ? formatDate(data.cost.periodEnd) : "未知"}</p>}
+        {data.egressUsage.from && <p className="ib-period">出口流量统计周期（UTC）：{formatDate(data.egressUsage.from)} — {data.egressUsage.countedThrough ? formatDate(data.egressUsage.countedThrough) : "计量时间未返回"} · 涉及机器记录 {data.egressUsage.machineCount ?? "未知"} 条</p>}
       </section>
 
       <section className="ib-card">
@@ -216,7 +220,7 @@ export function InstaboxDashboard() {
           <ul><li><code>machines:read</code></li></ul>
           <a href="https://dashboard.instabox.sh/dashboard/api-keys" target="_blank" rel="noreferrer">打开 InstaBox API Keys 页面 ↗</a>
         </div>
-        <p className="hint">提交后先调用 GET /v1/usage 验证 Key 与只读权限，再加密保存到 Neon。Key 不会回显、写入前端或日志。FreeQuota 只调用官方 GET 接口，不创建、启动、暂停或删除任何机器。</p>
+        <p className="hint">提交后调用 GET /v1/usage 和 GET /v1/usage/machines 验证 Key 与 machines:read 权限，再加密保存到 Neon。Key 不会回显、写入前端或日志。FreeQuota 只调用官方 GET 接口，不创建、启动、暂停或删除任何机器。</p>
         {credentialError && <p className="error">{credentialError}</p>}
         <div className="actions">
           <button type="button" onClick={() => { setApiKey(""); setCredentialOpen(false); }}>取消</button>
