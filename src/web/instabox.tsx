@@ -143,10 +143,11 @@ export function InstaboxDashboard() {
       </div>}
 
       <section className="ib-metric-grid" aria-label="InstaBox 当前用量">
+        <MetricCard emphasis label="本月出口流量" metric={data.egressGiB} formatter={formatGiB}
+          note={data.limits.maxEgressGiB === null ? "重点监控指标。Free 套餐官方资料未列出固定月度 Egress 上限；此处只显示账单累计用量。" : "重点监控指标。上限来自官方 Usage API。" } />
         <MetricCard label="机器数量" metric={data.machines} formatter={formatCount} />
         <MetricCard label="Snapshot 数量" metric={data.snapshots} formatter={formatCount} />
         <MetricCard label="已存储数据" metric={data.storedBytes} formatter={formatBytes} />
-        <MetricCard label="本月出口流量" metric={data.egressGiB} formatter={formatGiB} />
       </section>
 
       <section className="ib-card">
@@ -158,7 +159,7 @@ export function InstaboxDashboard() {
           <Limit label="同时运行" value={data.limits.maxRunning} suffix=" 台" />
           <Limit label="最多 Snapshot" value={data.limits.maxSnapshots} suffix=" 个" />
           <Limit label="存储上限" value={data.limits.maxStoredGiB} suffix=" GiB" />
-          <Limit label="月度出口流量" value={data.limits.maxEgressGiB} suffix=" GiB" />
+          <Limit label="月度 Egress 上限" value={data.limits.maxEgressGiB} suffix=" GiB" missingLabel="未列明" />
           <Limit label="每分钟启动" value={data.limits.maxStartsPerMinute} suffix=" 次" />
         </div>
       </section>
@@ -189,8 +190,7 @@ export function InstaboxDashboard() {
           <Limit label="同时运行" value={INSTABOX_FREE_REFERENCE_LIMITS.running} suffix=" 台" />
           <Limit label="Snapshot" value={INSTABOX_FREE_REFERENCE_LIMITS.snapshots} suffix=" 个" />
           <Limit label="Stored Data" value={INSTABOX_FREE_REFERENCE_LIMITS.storedGiB} suffix=" GiB" />
-          <Limit label="月度 Egress" value={INSTABOX_FREE_REFERENCE_LIMITS.egressGiB} suffix=" GiB" />
-          <Limit label="每分钟启动" value={INSTABOX_FREE_REFERENCE_LIMITS.startsPerMinute} suffix=" 次" />
+
         </div>
         <p className="ib-period">免费层还限制单机规格（4 vCPU / 8 GiB）、固定空闲暂停时间和单次最长运行时间；具体值以 InstaBox 当前官方 Limits 文档为准。</p>
       </section>
@@ -226,28 +226,31 @@ export function InstaboxDashboard() {
   </main>;
 }
 
-function MetricCard({ label, metric, formatter }: {
+function MetricCard({ label, metric, formatter, note, emphasis = false }: {
   label: string;
   metric: InstaboxMetric;
   formatter: (value: number) => string;
+  note?: string;
+  emphasis?: boolean;
 }) {
   const percent = metric.state === "available" && metric.used !== null && metric.quota !== null && metric.quota > 0
     ? metric.used / metric.quota * 100
     : null;
   const used = metric.state === "available" && metric.used !== null ? formatter(metric.used) : "不可用";
   const quota = metric.quota === null ? "" : " / " + formatter(metric.quota);
-  return <div className="ib-metric">
+  return <div className={emphasis ? "ib-metric ib-metric-primary" : "ib-metric"}>
     <span>{label}</span>
     <strong>{used}{quota}</strong>
     {percent !== null && <div className="ib-progress"><div className={percent >= 95 ? "critical" : percent >= 80 ? "warning" : ""} style={{ width: Math.min(100, Math.max(0, percent)) + "%" }} /></div>}
+    {note && <small>{note}</small>}
     {metric.state !== "available" && metric.reason && <small>{metric.reason}</small>}
   </div>;
 }
 
-function Limit({ label, value, suffix }: { label: string; value: number | null; suffix: string }) {
+function Limit({ label, value, suffix, missingLabel = "未返回" }: { label: string; value: number | null; suffix: string; missingLabel?: string }) {
   return <div className="ib-limit">
     <span>{label}</span>
-    <strong>{value === null ? "未返回" : formatCount(value) + suffix}</strong>
+    <strong>{value === null ? missingLabel : formatCount(value) + suffix}</strong>
   </div>;
 }
 
