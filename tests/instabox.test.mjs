@@ -15,6 +15,8 @@ test("InstaBox Free reference limits match the official Limits table", () => {
   assert.equal(INSTABOX_FREE_REFERENCE_LIMITS.running, 1);
   assert.equal(INSTABOX_FREE_REFERENCE_LIMITS.snapshots, 5);
   assert.equal(INSTABOX_FREE_REFERENCE_LIMITS.storedGiB, 200);
+  assert.equal(INSTABOX_FREE_REFERENCE_LIMITS.egressGiB, 100);
+  assert.equal(INSTABOX_FREE_REFERENCE_LIMITS.startsPerMinute, 3);
 });
 
 test("usage parser maps current counts, dynamic limits and hourly-rated cost fields", () => {
@@ -86,7 +88,7 @@ test("real zero is preserved and missing metrics are not converted to zero", () 
   assert.equal(missing.partial, true);
 });
 
-test("Free plan does not invent an egress cap when the API omits one", () => {
+test("Free plan uses the documented egress cap when the API omits one", () => {
   const result = parseInstaboxUsage({
     machines: 1,
     snapshots: 0,
@@ -96,8 +98,8 @@ test("Free plan does not invent an egress cap when the API omits one", () => {
     cost: { egressGiB: 0, ratedUntil: "2026-11-27T11:00:00Z" },
   });
   assert.equal(result.egressGiB.used, 0);
-  assert.equal(result.egressGiB.quota, null);
-  assert.equal(result.limits.maxEgressGiB, null);
+  assert.equal(result.egressGiB.quota, 100);
+  assert.equal(result.limits.maxEgressGiB, 100);
 });
 
 test("dynamic egress limit is used only when the API returns one", () => {
