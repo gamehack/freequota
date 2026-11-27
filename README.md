@@ -83,6 +83,7 @@ MIT License.
 - API Key 仅授予 `machines:read`；FreeQuota 不调用创建、启动、暂停、删除机器或修改 Workspace 的接口。
 - API Key 通过现有 AES-256-GCM 密钥加密保存到 Neon；提交前先调用官方 Usage API 验证权限，前端不回显密钥。
 - 打开模块时按需实时查询，不创建 Cron，不保存用量历史。缺失字段、权限错误和 API 限流不会被当成 0。
-- 机器数、Snapshot 和存储优先使用官方 Usage API 返回的当前计数与 `limits`；月度出口流量读取 `cost.egressGiB`，官方账单计量按小时更新，可能滞后约 1 小时。
-- Free 套餐参考限制：1 台机器、同时运行 1 台、5 个 Snapshot、200 GiB Stored Data、100 GiB 月度 Egress、每分钟 3 次启动。账户动态限制优先于静态参考值。
+- 机器数、Snapshot 和存储优先使用官方 Usage API 返回的当前计数与 `limits`；月度出口流量读取 `cost.egressGiB`，官方账单计量按小时更新，可能滞后约 1 小时。Egress 是首页重点指标，但用量值与套餐限额分开处理。
+- Free 套餐参考限制：1 台机器、5 个 Snapshot、200 GiB Stored Data；机器规格及自动暂停/最长运行时间以官方 Limits 文档为准。
+- 官方 Free 套餐介绍称免费机器没有使用量限制；官方资料未列出固定的 100 GiB 月度 Egress 配额。FreeQuota 将 Egress 作为重点指标展示实际账单累计用量，只有官方 Usage API 在 `limits` 中明确返回上限时才显示百分比，绝不推断或硬编码额度。
 - 官方文档：[Billing and Usage](https://instabox.sh/docs/account/billing)、[Limits](https://instabox.sh/docs/account/limits)、[API Keys](https://instabox.sh/docs/security/api-keys)。
