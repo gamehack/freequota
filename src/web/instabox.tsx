@@ -220,7 +220,7 @@ export function InstaboxDashboard() {
           <ul><li><code>machines:read</code></li></ul>
           <a href="https://dashboard.instabox.sh/dashboard/api-keys" target="_blank" rel="noreferrer">打开 InstaBox API Keys 页面 ↗</a>
         </div>
-        <p className="hint">提交后先调用 GET /v1/usage 验证 Key 与只读权限，再加密保存到 Neon。Key 不会回显、写入前端或日志。FreeQuota 只调用官方 GET 接口，不创建、启动、暂停或删除任何机器。</p>
+        <p className="hint">提交后调用 GET /v1/usage 和 GET /v1/usage/machines 验证 Key 与 machines:read 权限，再加密保存到 Neon。Key 不会回显、写入前端或日志。FreeQuota 只调用官方 GET 接口，不创建、启动、暂停或删除任何机器。</p>
         {credentialError && <p className="error">{credentialError}</p>}
         <div className="actions">
           <button type="button" onClick={() => { setApiKey(""); setCredentialOpen(false); }}>取消</button>
