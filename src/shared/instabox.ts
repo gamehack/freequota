@@ -56,6 +56,8 @@ export const INSTABOX_FREE_REFERENCE_LIMITS = {
   running: 1,
   snapshots: 5,
   storedGiB: 200,
+  egressGiB: 100,
+  startsPerMinute: 3,
 } as const;
 
 type Obj = Record<string, unknown>;
@@ -117,16 +119,17 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
     stringValue(org?.tier) ??
     stringValue(workspace?.tier);
 
-  // Never infer a monthly egress quota from the plan name. Only show a cap
-  // when the official Usage API actually returns one in limits.
+  const effectiveEgressLimit = maxEgressGiB ??
+    (plan?.toLowerCase() === "free" ? INSTABOX_FREE_REFERENCE_LIMITS.egressGiB : null);
 
   const limits: InstaboxLimits = {
     maxMachines,
     maxRunning,
     maxSnapshots,
     maxStoredGiB,
-    maxEgressGiB,
-    maxStartsPerMinute,
+    maxEgressGiB: effectiveEgressLimit,
+    maxStartsPerMinute: maxStartsPerMinute ??
+      (plan?.toLowerCase() === "free" ? INSTABOX_FREE_REFERENCE_LIMITS.startsPerMinute : null),
   };
 
   const warnings: string[] = [];
@@ -137,7 +140,7 @@ export function parseInstaboxUsage(raw: unknown, queriedAt = new Date().toISOStr
     maxStoredGiB === null ? null : maxStoredGiB * 1024 * 1024 * 1024,
     "storedBytes",
   );
-  const egressGiB = metric(egressUsed, maxEgressGiB, "cost.egressGiB");
+  const egressGiB = metric(egressUsed, effectiveEgressLimit, "cost.egressGiB");
 
   for (const [name, value] of [
     ["机器数量", machines],
