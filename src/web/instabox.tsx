@@ -144,7 +144,7 @@ export function InstaboxDashboard() {
 
       <section className="ib-metric-grid" aria-label="InstaBox 当前用量">
         <MetricCard emphasis label="本月出口流量" metric={data.egressGiB} formatter={formatGiB}
-          note={data.limits.maxEgressGiB === null ? "重点监控指标。Free 套餐官方资料未列出固定月度 Egress 上限；此处只显示账单累计用量。" : "重点监控指标。上限来自官方 Usage API。" } />
+          note="重点监控指标。Free 套餐包含 100 GiB/月；优先采用官方 API 返回的动态上限。" />
         <MetricCard label="机器数量" metric={data.machines} formatter={formatCount} />
         <MetricCard label="Snapshot 数量" metric={data.snapshots} formatter={formatCount} />
         <MetricCard label="已存储数据" metric={data.storedBytes} formatter={formatBytes} />
@@ -190,7 +190,8 @@ export function InstaboxDashboard() {
           <Limit label="同时运行" value={INSTABOX_FREE_REFERENCE_LIMITS.running} suffix=" 台" />
           <Limit label="Snapshot" value={INSTABOX_FREE_REFERENCE_LIMITS.snapshots} suffix=" 个" />
           <Limit label="Stored Data" value={INSTABOX_FREE_REFERENCE_LIMITS.storedGiB} suffix=" GiB" />
-
+          <Limit label="月度 Egress" value={INSTABOX_FREE_REFERENCE_LIMITS.egressGiB} suffix=" GiB" />
+          <Limit label="每分钟启动" value={INSTABOX_FREE_REFERENCE_LIMITS.startsPerMinute} suffix=" 次" />
         </div>
         <p className="ib-period">免费层还限制单机规格（4 vCPU / 8 GiB）、固定空闲暂停时间和单次最长运行时间；具体值以 InstaBox 当前官方 Limits 文档为准。</p>
       </section>
