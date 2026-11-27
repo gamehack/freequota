@@ -1,24 +1,24 @@
 # FreeQuota
 
-个人使用的 Supabase 多账号管理、Neon、Cloudflare 与 GitHub 免费额度查询工具。
+个人使用的 Supabase 多账号管理、Neon、Cloudflare、GitHub 与 InstaBox 免费额度查询工具。
 
-- Cloudflare Workers / React / Hono；Neon 数据库保存管理员 Session、加密 Supabase PAT、Neon API Key、Cloudflare API Token 和 GitHub Fine-grained PAT。
+- Cloudflare Workers / React / Hono；Neon 数据库保存管理员 Session、加密 Supabase PAT、Neon API Key、Cloudflare API Token、GitHub Fine-grained PAT 和 InstaBox API Key。
 - 打开页面时按需实时请求官方 API，无 Cron、无后台采集、无用量历史快照。
 - Supabase 模块：多账号管理、项目数据库磁盘运行指标及 API 请求量观察。
 - Neon 模块：单个 Neon API Key 管理其可访问的 Organizations 和 Projects，展示 Free Plan 的 Compute、PostgreSQL Storage、数据传输、Projects、Branches。
 - Neon PostgreSQL Storage 按 Neon 官方 Free Plan 指引，汇总项目所有 Branch 的 `logical_size`；不使用可能为 0 的 `data_storage_bytes_hour` 推算存储容量。
 - Neon 项目用量快照用于监控，不是账单计量数据；官方数据可能延迟。无法确认的指标显示不可用，不冒充 0。
 - Neon V1 不展示未经验证的 Object Storage、Functions、Auth MAU 实际用量。
-- Supabase Management API、Neon API、Cloudflare REST API 与 GraphQL Analytics 均为只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
+- Supabase Management API、Neon API、Cloudflare REST API 与 GraphQL Analytics、GitHub Billing API、InstaBox Usage API 均为只读查询；凭证写入仅发生在 FreeQuota 自己的数据库。
 - 不保存 Supabase 或 Neon 的用量历史，不创建定时采集任务。
 
 ## 部署
 
-1. Neon 新建独立数据库，执行 `migrations/001_initial.sql`、`migrations/002_neon_credentials.sql` 和 `migrations/003_cloudflare_credentials.sql` 和 `migrations/004_github_credentials.sql`。
+1. Neon 新建独立数据库，执行 `migrations/001_initial.sql`、`migrations/002_neon_credentials.sql` 和 `migrations/003_cloudflare_credentials.sql` 和 `migrations/004_github_credentials.sql` 和 `migrations/005_instabox_credentials.sql`。
 2. Cloudflare Worker 配置 `DATABASE_URL` 和 `TOKEN_ENCRYPTION_KEY` 两项 Secrets。后者为 32 字节随机密钥的 Base64 编码，请保存离线备份。
 3. 首次管理员创建（仅当 `admin_users` 为空）：临时配置 `ADMIN_BOOTSTRAP_PASSWORD` Secret，首次使用 admin 和该密码成功登录后立即删除该 Secret。
 4. 在 GitHub Actions Secrets 配置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`。Pull Request 只运行测试和构建；只有 push 到 `main` 才部署生产 Worker。
-5. 绑定自有域名并登录管理页。Supabase 模块添加 Supabase PAT；Neon 模块添加 Neon Personal API Key；Cloudflare 模块配置单账号只读 API Token。
+5. 绑定自有域名并登录管理页。Supabase 模块添加 Supabase PAT；Neon 模块添加 Neon Personal API Key；Cloudflare 模块配置单账号只读 API Token；InstaBox 模块配置仅包含 `machines:read` 的 API Key。
 
 ### Neon API Key
 
@@ -44,7 +44,8 @@
 
 - Session Token 仅保存 SHA-256 哈希，Cookie 为 HttpOnly + Secure + SameSite=Strict。
 - 管理员密码以 pgcrypto bcrypt 哈希保存；Supabase PAT 与 Neon API Key 使用 AES-256-GCM 加密，绝不写入前端。
-- 用量结果只作为此次请求响应，不写入 Neon。
+- 用量结果只作为此次请求响应，不写入 Neon，不保存历史快照。
+- InstaBox API Key 使用现有 AES-256-GCM 密钥加密保存；FreeQuota 仅调用 `GET /v1/usage`。
 - 403/429/无数据均独立展示错误原因，不冒充 0。
 - Neon API Key 只用于只读 GET 请求；FreeQuota 不调用 Neon 的创建、更新、删除接口。
 
@@ -74,3 +75,14 @@ MIT License.
 - $12 是美元计价的共享计算额度，不是所有 Runner 通用的固定分钟数。页面按 Billing API 的 grossAmount、discountAmount、netAmount 原值展示；不把折扣直接视为免费额度消耗，也不推算未经证实的剩余额度。
 - Artifacts / Packages 的计费周期用量不等于当前瞬时占用；Actions Cache 当前容量不由本版 Plan: Read 权限查询。
 - GitHub PAT 通过现有 AES-256-GCM 密钥加密保存到 Neon；只读 GET 请求；不读取或修改仓库代码，不保存用量历史，不创建 Cron。
+
+
+## InstaBox 单 Workspace
+
+- InstaBox 模块使用官方 `GET /v1/usage` 查询 API Key 所属 Workspace 的机器数量、Snapshot 数量、存储占用、动态 limits 和本月费用/出口流量。
+- API Key 仅授予 `machines:read`；FreeQuota 不调用创建、启动、暂停、删除机器或修改 Workspace 的接口。
+- API Key 通过现有 AES-256-GCM 密钥加密保存到 Neon；提交前先调用官方 Usage API 验证权限，前端不回显密钥。
+- 打开模块时按需实时查询，不创建 Cron，不保存用量历史。缺失字段、权限错误和 API 限流不会被当成 0。
+- 机器数、Snapshot 和存储优先使用官方 Usage API 返回的当前计数与 `limits`；月度出口流量读取 `cost.egressGiB`，官方账单计量按小时更新，可能滞后约 1 小时。
+- Free 套餐参考限制：1 台机器、同时运行 1 台、5 个 Snapshot、200 GiB Stored Data、100 GiB 月度 Egress、每分钟 3 次启动。账户动态限制优先于静态参考值。
+- 官方文档：[Billing and Usage](https://instabox.sh/docs/account/billing)、[Limits](https://instabox.sh/docs/account/limits)、[API Keys](https://instabox.sh/docs/security/api-keys)。
