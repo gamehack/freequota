@@ -45,7 +45,7 @@
 - Session Token 仅保存 SHA-256 哈希，Cookie 为 HttpOnly + Secure + SameSite=Strict。
 - 管理员密码以 pgcrypto bcrypt 哈希保存；Supabase PAT 与 Neon API Key 使用 AES-256-GCM 加密，绝不写入前端。
 - 用量结果只作为此次请求响应，不写入 Neon，不保存历史快照。
-- InstaBox API Key 使用现有 AES-256-GCM 密钥加密保存；FreeQuota 仅调用 `GET /v1/usage`。
+- InstaBox API Key 使用现有 AES-256-GCM 密钥加密保存；FreeQuota 仅调用 `GET /v1/usage` 和 `GET /v1/usage/machines` 两个只读接口，均使用 `machines:read` 权限。
 - 403/429/无数据均独立展示错误原因，不冒充 0。
 - Neon API Key 只用于只读 GET 请求；FreeQuota 不调用 Neon 的创建、更新、删除接口。
 
@@ -79,11 +79,11 @@ MIT License.
 
 ## InstaBox 单 Workspace
 
-- InstaBox 模块使用官方 `GET /v1/usage` 查询 API Key 所属 Workspace 的机器数量、Snapshot 数量、存储占用、动态 limits 和本月费用/出口流量。
+- InstaBox 模块使用官方 `GET /v1/usage` 查询 Workspace 的机器数量、Snapshot、存储、动态 limits 和费用；使用 `GET /v1/usage/machines` 查询本月机器级 Egress 字节数。Free 套餐只有一台机器，因此按单 Workspace 查询并汇总本月返回的机器记录，不接入单机 Metrics API。
 - API Key 仅授予 `machines:read`；FreeQuota 不调用创建、启动、暂停、删除机器或修改 Workspace 的接口。
 - API Key 通过现有 AES-256-GCM 密钥加密保存到 Neon；提交前先调用官方 Usage API 验证权限，前端不回显密钥。
 - 打开模块时按需实时查询，不创建 Cron，不保存用量历史。缺失字段、权限错误和 API 限流不会被当成 0。
-- 机器数、Snapshot 和存储优先使用官方 Usage API 返回的当前计数与 `limits`；月度出口流量读取 `cost.egressGiB`，官方账单计量按小时更新，可能滞后约 1 小时。Egress 是首页重点指标；Free 套餐月度出口额度为 100 GiB，API 动态限额优先，缺失时回退到官方 Limits 文档的 Free 额度。
+- 机器数、Snapshot 和存储优先使用 `GET /v1/usage` 返回的当前计数与 `limits`；月度实际出口流量读取 `GET /v1/usage/machines` 的 `machines[].egressBytes`，按 UTC 自然月查询并汇总机器记录。API 按整小时计量，同一窗口每分钟最多重新计算一次，响应 `to` 表示计量截止时间。
 - Free 套餐参考限制：1 台机器、5 个 Snapshot、200 GiB Stored Data、100 GiB 月度 Egress、每分钟 3 次启动；机器规格及自动暂停/最长运行时间以官方 Limits 文档为准。
-- InstaBox 官方 Limits 与 Pricing 文档明确列出 Free 套餐每月 100 GiB Egress。FreeQuota 将 Egress 作为重点指标；优先使用 Usage API 的动态限额，缺失时使用官方公布的 100 GiB Free 参考额度。超额流量按官方价格规则处理。
+- InstaBox 官方 Limits 文档明确列出 Free 套餐每月 100 GiB Egress。FreeQuota 首页 Egress 卡片显示机器级 API 的实际月度出口流量；`cost.egressGiB` 单独展示超出套餐包含额度、参与计费的流量，不能用它代替总出口流量。
 - 官方文档：[Billing and Usage](https://instabox.sh/docs/account/billing)、[Limits](https://instabox.sh/docs/account/limits)、[API Keys](https://instabox.sh/docs/security/api-keys)。
